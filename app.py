@@ -1,13 +1,29 @@
 import time
 import math
+import io
 import threading
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, jsonify, request, Response, render_template_string
 import smbus
 import serial
+import grovepi
+from picamera2 import Picamera2
 
 app = Flask(__name__)
 
 telemetry = {
+    "camera": {
+        "connected": False,
+        "resolution": "640x480",
+        "error": None
+    },
+    "ultrasonic": {
+        "connected": False,
+        "port": "D2",
+        "distance_cm": 0,
+        "warning": "Searching...",
+        "alert_level": "green",
+        "error": None
+    },
     "imu": {
         "connected": False,
         "raw_x": 0,
@@ -53,6 +69,9 @@ bus = None
 arduino_lock = threading.Lock()
 arduino_ser = None
 
+camera_frame = None
+camera_lock = threading.Lock()
+
 def init_bus():
     global bus
     try:
@@ -61,6 +80,70 @@ def init_bus():
     except Exception as e:
         print(f"Error initializing I2C bus: {e}")
         return False
+
+# ================= CAMERA WORKER (OV5647 CSI via Picamera2) =================
+def camera_worker():
+    global camera_frame
+    try:
+        picam2 = Picamera2()
+        config = picam2.create_video_configuration(main={"size": (640, 480)})
+        picam2.configure(config)
+        picam2.start()
+        telemetry["camera"]["connected"] = True
+        time.sleep(1.0)
+        
+        while True:
+            bio = io.BytesIO()
+            picam2.capture_file(bio, format="jpeg")
+            data = bio.getvalue()
+            with camera_lock:
+                camera_frame = data
+            time.sleep(0.04) # ~25 FPS
+    except Exception as e:
+        telemetry["camera"]["connected"] = False
+        telemetry["camera"]["error"] = str(e)
+        print("Camera worker error:", e)
+
+# ================= ULTRASONIC WORKER (GrovePi Port D2) =================
+def ultrasonic_worker():
+    ULTRASONIC_PORT = 2
+    smooth_dist = 50.0
+    initialized = False
+
+    while True:
+        try:
+            val = None
+            try:
+                with i2c_lock:
+                    val = grovepi.ultrasonicRead(ULTRASONIC_PORT)
+            except Exception:
+                val = None
+
+            if isinstance(val, (int, float)) and 0 < val <= 500:
+                d = float(val)
+                if not initialized:
+                    smooth_dist = d
+                    initialized = True
+                else:
+                    smooth_dist = 0.35 * d + 0.65 * smooth_dist
+                
+                final_dist = round(smooth_dist, 1)
+                telemetry["ultrasonic"]["connected"] = True
+                telemetry["ultrasonic"]["distance_cm"] = final_dist
+                
+                if final_dist < 18:
+                    telemetry["ultrasonic"]["warning"] = "OBSTACLE CLOSE!"
+                    telemetry["ultrasonic"]["alert_level"] = "red"
+                elif final_dist < 45:
+                    telemetry["ultrasonic"]["warning"] = "CAUTION"
+                    telemetry["ultrasonic"]["alert_level"] = "yellow"
+                else:
+                    telemetry["ultrasonic"]["warning"] = "CLEAR"
+                    telemetry["ultrasonic"]["alert_level"] = "green"
+                telemetry["ultrasonic"]["error"] = None
+        except Exception as e:
+            telemetry["ultrasonic"]["error"] = str(e)
+        time.sleep(0.08) # 12 Hz
 
 # ================= ARDUINO SERIAL & MOTOR WORKER =================
 def arduino_worker():
@@ -88,8 +171,6 @@ def arduino_worker():
                         val_str = line.split("RPM:")[1].strip()
                         rpm = float(val_str)
                         telemetry["arduino"]["rpm"] = rpm
-                        # 65mm diameter wheel -> ~0.204m circumference
-                        # speed (m/s) = rpm * 0.204 / 60 -> * 3.6 for km/h = rpm * 0.01224
                         telemetry["arduino"]["speed_kmh"] = round(rpm * 0.01224, 2)
                         telemetry["arduino"]["connected"] = True
                     except:
@@ -127,25 +208,21 @@ def imu_worker():
     with i2c_lock:
         try:
             if bus:
-                # Enter standby to configure sample rate
                 bus.write_byte_data(MMA7660_ADDR, 0x07, 0x00)
-                # Register 0x08: (3 << 5) = 4-sample debounce filter | 0x02 = 32 samples/sec
                 bus.write_byte_data(MMA7660_ADDR, 0x08, (3 << 5) | 0x02)
-                # Re-enter active mode
                 bus.write_byte_data(MMA7660_ADDR, 0x07, 0x01)
                 telemetry["imu"]["connected"] = True
         except Exception as e:
             telemetry["imu"]["error"] = str(e)
 
     def parse_6bit(val):
-        if val & 0x40:  # Alert bit: invalid/updating reading
+        if val & 0x40:
             return None
         v = val & 0x3F
         if v & 0x20:
             v -= 0x40
         return v
 
-    # Filter state
     smooth_ax = 0.0
     smooth_ay = 0.0
     smooth_az = 1.0
@@ -168,12 +245,10 @@ def imu_worker():
             sz = parse_6bit(rz)
 
             if sx is not None and sy is not None and sz is not None:
-                # 1. Maintain sliding window of 5 samples for outlier rejection
                 raw_history.append((sx, sy, sz))
                 if len(raw_history) > 5:
                     raw_history.pop(0)
 
-                # Trimmed mean: sorted medians for each axis
                 xs = sorted([s[0] for s in raw_history])
                 ys = sorted([s[1] for s in raw_history])
                 zs = sorted([s[2] for s in raw_history])
@@ -185,7 +260,6 @@ def imu_worker():
                 inst_ay = med_y / 21.33
                 inst_az = med_z / 21.33
 
-                # 2. Exponential Moving Average (EMA) on acceleration
                 ALPHA_ACC = 0.18
                 if not initialized:
                     smooth_ax = inst_ax
@@ -197,11 +271,9 @@ def imu_worker():
                     smooth_ay = ALPHA_ACC * inst_ay + (1.0 - ALPHA_ACC) * smooth_ay
                     smooth_az = ALPHA_ACC * inst_az + (1.0 - ALPHA_ACC) * smooth_az
 
-                # 3. Compute Euler Angles (Pitch & Roll)
                 raw_pitch = math.atan2(smooth_ax, math.sqrt(smooth_ay**2 + smooth_az**2 + 1e-6)) * 180 / math.pi
                 raw_roll = math.atan2(smooth_ay, math.sqrt(smooth_ax**2 + smooth_az**2 + 1e-6)) * 180 / math.pi
 
-                # 4. Deadband + Angle smoothing (suppress micro-jitter < 0.35 degrees)
                 ALPHA_ANG = 0.20
                 if abs(raw_pitch - smooth_pitch) > 0.35:
                     smooth_pitch = ALPHA_ANG * raw_pitch + (1.0 - ALPHA_ANG) * smooth_pitch
@@ -230,7 +302,7 @@ def imu_worker():
                         bus.write_byte_data(MMA7660_ADDR, 0x07, 0x01)
                 except:
                     pass
-        time.sleep(0.04)  # 25 Hz sampling rate
+        time.sleep(0.04)
 
 # ================= GPS WORKER (Ublox NEO-M9N at 0x42) =================
 def parse_nmea_coords(raw_coord, direction):
@@ -337,11 +409,11 @@ HTML_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GrovePi+ & Arduino Robot Telemetry</title>
+  <title>Autonomous Robot Telemetry & FPV</title>
   <style>
     :root {
-      --bg-dark: #090d16;
-      --card-bg: rgba(18, 25, 41, 0.88);
+      --bg-dark: #070a12;
+      --card-bg: rgba(16, 23, 38, 0.9);
       --card-border: rgba(255, 255, 255, 0.08);
       --blue: #38bdf8;
       --purple: #818cf8;
@@ -353,22 +425,22 @@ HTML_PAGE = """<!DOCTYPE html>
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     body {
-      background: radial-gradient(circle at 50% 0%, #152238 0%, #06080e 100%);
+      background: radial-gradient(circle at 50% 0%, #121c2e 0%, #05070c 100%);
       color: var(--text);
       min-height: 100vh;
-      padding: 20px 24px;
+      padding: 16px 20px;
     }
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      max-width: 1350px;
-      margin: 0 auto 16px auto;
-      padding-bottom: 12px;
+      max-width: 1400px;
+      margin: 0 auto 12px auto;
+      padding-bottom: 10px;
       border-bottom: 1px solid var(--card-border);
     }
     .title h1 {
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 700;
       background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
       -webkit-background-clip: text;
@@ -378,10 +450,10 @@ HTML_PAGE = """<!DOCTYPE html>
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 5px 12px;
+      gap: 6px;
+      padding: 4px 11px;
       border-radius: 9999px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid var(--card-border);
@@ -392,27 +464,27 @@ HTML_PAGE = """<!DOCTYPE html>
     .dot.red { background: var(--red); box-shadow: 0 0 8px var(--red); }
 
     .container {
-      max-width: 1350px;
+      max-width: 1400px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
     .card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 18px 20px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.35);
+      border-radius: 12px;
+      padding: 14px 18px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.4);
     }
     .card-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
-    .card-head h2 { font-size: 17px; font-weight: 600; }
+    .card-head h2 { font-size: 15px; font-weight: 600; }
     .tag {
       font-size: 11px;
       font-weight: 600;
@@ -422,55 +494,163 @@ HTML_PAGE = """<!DOCTYPE html>
       border-radius: 6px;
     }
 
-    /* SECTION 1: ARDUINO MOTOR & ENCODER */
+    /* TOP ROW: CAMERA & CONTROLLER */
+    .top-split {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 1050px) {
+      .top-split { grid-template-columns: 1fr; }
+    }
+
+    /* FPV CAMERA CARD */
+    .cam-box {
+      width: 100%;
+      height: 250px;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cam-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .cam-overlay {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      font-size: 11px;
+      font-family: monospace;
+      color: #38bdf8;
+      text-shadow: 0 1px 3px #000;
+    }
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+    .crosshair::before, .crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(56, 189, 248, 0.8);
+    }
+    .crosshair::before { top: 15px; left: 0; width: 32px; height: 2px; }
+    .crosshair::after { top: 0; left: 15px; width: 2px; height: 32px; }
+
+    /* ULTRASONIC SENSOR CARD */
+    .sonic-container {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 16px;
+      align-items: center;
+      margin-top: 10px;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px 16px;
+    }
+    .sonic-num {
+      text-align: center;
+    }
+    .sonic-num .val {
+      font-size: 38px;
+      font-weight: 800;
+      font-family: monospace;
+      line-height: 1;
+      color: var(--blue);
+    }
+    .sonic-num .lbl { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
+
+    .sonic-meter {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sonic-bar-bg {
+      height: 12px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .sonic-bar-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 6px;
+      background: var(--green);
+      transition: width 0.15s ease-out, background 0.2s;
+    }
+    .sonic-status-tag {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    /* ROBOT & ENCODER SECTION */
     .robot-grid {
       display: grid;
-      grid-template-columns: 300px 1fr 340px;
-      gap: 20px;
+      grid-template-columns: 160px 1fr 170px;
+      gap: 14px;
       align-items: center;
     }
     @media (max-width: 1050px) {
       .robot-grid { grid-template-columns: 1fr; }
     }
-
     .rpm-display {
       background: rgba(0,0,0,0.3);
       border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 10px;
+      padding: 12px;
       text-align: center;
     }
     .rpm-display .rpm-num {
-      font-size: 44px;
+      font-size: 34px;
       font-weight: 800;
       font-family: monospace;
       color: var(--blue);
-      text-shadow: 0 0 20px rgba(56, 189, 248, 0.35);
       line-height: 1;
-      margin: 8px 0;
+      margin: 6px 0;
     }
-    .rpm-display .sub { font-size: 12px; color: var(--muted); }
 
-    /* D-PAD CONTROLLER */
     .dpad-container {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
     }
-    .dpad-row { display: flex; gap: 8px; }
+    .dpad-row { display: flex; gap: 6px; }
     .btn-ctrl {
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid var(--card-border);
       color: #fff;
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 700;
-      padding: 14px 22px;
-      border-radius: 10px;
+      padding: 10px 18px;
+      border-radius: 8px;
       cursor: pointer;
       user-select: none;
       transition: all 0.1s;
-      min-width: 68px;
+      min-width: 60px;
       text-align: center;
     }
     .btn-ctrl:hover { background: rgba(56, 189, 248, 0.25); border-color: var(--blue); }
@@ -478,7 +658,7 @@ HTML_PAGE = """<!DOCTYPE html>
       background: var(--blue);
       color: #000;
       transform: scale(0.95);
-      box-shadow: 0 0 15px var(--blue);
+      box-shadow: 0 0 12px var(--blue);
     }
     .btn-stop {
       background: rgba(239, 68, 68, 0.2);
@@ -491,44 +671,50 @@ HTML_PAGE = """<!DOCTYPE html>
     .robot-info {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
     .info-row {
       background: rgba(0,0,0,0.25);
       border: 1px solid var(--card-border);
-      border-radius: 8px;
-      padding: 10px 14px;
+      border-radius: 6px;
+      padding: 6px 10px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
+      font-size: 12px;
     }
     .info-row span.val { font-family: monospace; font-weight: 700; color: #fff; }
 
-    /* SECTION 2: IMU */
+    /* IMU & GPS BOTTOM ROW */
+    .bottom-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 1050px) {
+      .bottom-split { grid-template-columns: 1fr; }
+    }
+
+    /* IMU */
     .imu-grid {
       display: grid;
-      grid-template-columns: 240px 1fr 1fr;
-      gap: 20px;
+      grid-template-columns: 150px 1fr 1fr;
+      gap: 14px;
       align-items: center;
-    }
-    @media (max-width: 950px) {
-      .imu-grid { grid-template-columns: 1fr; }
     }
     .viewport-3d {
       width: 100%;
-      height: 160px;
-      perspective: 700px;
+      height: 120px;
+      perspective: 600px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: rgba(0,0,0,0.3);
-      border-radius: 12px;
+      border-radius: 10px;
       border: 1px dashed rgba(255,255,255,0.1);
     }
     .cube {
-      width: 75px;
-      height: 75px;
+      width: 60px;
+      height: 60px;
       position: relative;
       transform-style: preserve-3d;
       transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -536,95 +722,77 @@ HTML_PAGE = """<!DOCTYPE html>
     }
     .face {
       position: absolute;
-      width: 75px;
-      height: 75px;
+      width: 60px;
+      height: 60px;
       border: 2px solid rgba(56, 189, 248, 0.8);
       background: rgba(56, 189, 248, 0.2);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 11px;
+      font-size: 10px;
       color: #fff;
-      border-radius: 6px;
+      border-radius: 4px;
     }
-    .face.front  { transform: rotateY(0deg) translateZ(37.5px); background: rgba(56, 189, 248, 0.4); }
-    .face.back   { transform: rotateY(180deg) translateZ(37.5px); }
-    .face.right  { transform: rotateY(90deg) translateZ(37.5px); }
-    .face.left   { transform: rotateY(-90deg) translateZ(37.5px); }
-    .face.top    { transform: rotateX(90deg) translateZ(37.5px); background: rgba(34, 197, 94, 0.4); }
-    .face.bottom { transform: rotateX(-90deg) translateZ(37.5px); }
+    .face.front  { transform: rotateY(0deg) translateZ(30px); background: rgba(56, 189, 248, 0.4); }
+    .face.back   { transform: rotateY(180deg) translateZ(30px); }
+    .face.right  { transform: rotateY(90deg) translateZ(30px); }
+    .face.left   { transform: rotateY(-90deg) translateZ(30px); }
+    .face.top    { transform: rotateX(90deg) translateZ(30px); background: rgba(34, 197, 94, 0.4); }
+    .face.bottom { transform: rotateX(-90deg) translateZ(30px); }
 
-    .angle-boxes {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
+    .angle-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .angle-box {
       background: rgba(0,0,0,0.3);
       border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 12px;
+      border-radius: 8px;
+      padding: 8px;
       text-align: center;
     }
-    .angle-box .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; margin-bottom: 2px; }
-    .angle-box .deg { font-size: 24px; font-weight: 700; font-family: monospace; color: var(--blue); }
+    .angle-box .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 2px; }
+    .angle-box .deg { font-size: 18px; font-weight: 700; font-family: monospace; color: var(--blue); }
 
-    .gauges { display: flex; flex-direction: column; gap: 8px; }
-    .gauge { display: flex; flex-direction: column; gap: 4px; }
-    .gauge-top { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+    .gauges { display: flex; flex-direction: column; gap: 6px; }
+    .gauge { display: flex; flex-direction: column; gap: 3px; }
+    .gauge-top { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
     .gauge-top .val { font-family: monospace; font-weight: 700; color: #fff; }
-    .gauge-bar-bg { height: 7px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
-    .gauge-bar { height: 100%; background: linear-gradient(90deg, var(--blue), var(--purple)); border-radius: 4px; transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .gauge-bar-bg { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+    .gauge-bar { height: 100%; background: linear-gradient(90deg, var(--blue), var(--purple)); border-radius: 3px; transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
 
-    /* SECTION 3: GPS */
-    .gps-grid {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 16px;
-    }
-    @media (max-width: 950px) {
-      .gps-grid { grid-template-columns: 1fr; }
-    }
-    .gps-stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-    }
-    @media (max-width: 650px) {
-      .gps-stats { grid-template-columns: repeat(2, 1fr); }
-    }
+    /* GPS */
+    .gps-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 12px; }
+    .gps-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
     .stat-card {
       background: rgba(0,0,0,0.3);
       border: 1px solid var(--card-border);
-      border-radius: 8px;
-      padding: 8px 12px;
+      border-radius: 6px;
+      padding: 6px 8px;
     }
-    .stat-card .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 2px; }
-    .stat-card .val { font-size: 15px; font-weight: 700; font-family: monospace; color: #fff; }
+    .stat-card .lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; margin-bottom: 2px; }
+    .stat-card .val { font-size: 13px; font-weight: 700; font-family: monospace; color: #fff; }
 
     .radar-container {
       background: rgba(0,0,0,0.3);
       border: 1px solid var(--card-border);
-      border-radius: 10px;
-      height: 140px;
+      border-radius: 8px;
+      height: 120px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       position: relative;
     }
-    .radar-svg { width: 100px; height: 100px; }
+    .radar-svg { width: 85px; height: 85px; }
 
     .nmea-feed {
-      margin-top: 10px;
+      margin-top: 8px;
       background: rgba(0,0,0,0.45);
       border-radius: 6px;
-      padding: 8px 12px;
+      padding: 6px 10px;
       font-family: monospace;
-      font-size: 11px;
+      font-size: 10px;
       color: var(--blue);
-      max-height: 48px;
+      max-height: 38px;
       overflow: hidden;
       white-space: nowrap;
     }
@@ -633,189 +801,222 @@ HTML_PAGE = """<!DOCTYPE html>
 <body>
   <div class="header">
     <div class="title">
-      <h1>GrovePi+ & Arduino Robot Vehicle Telemetry</h1>
-      <span style="font-size: 12px; color: var(--muted);">Raspberry Pi 4 &bull; Arduino Uno &bull; Grove Sensors</span>
+      <h1>Autonomous Vehicle Telemetry & FPV Suite</h1>
+      <span style="font-size: 11px; color: var(--muted);">Raspberry Pi 4 &bull; Camera &bull; Ultrasonic D2 &bull; IMU &bull; GPS &bull; Arduino</span>
     </div>
     <div class="badges">
-      <div id="badge-arduino" class="badge"><div class="dot yellow"></div> Arduino: Connecting...</div>
-      <div id="badge-imu" class="badge"><div class="dot yellow"></div> IMU: Connecting...</div>
-      <div id="badge-gps" class="badge"><div class="dot yellow"></div> GPS: Acquiring...</div>
-      <div class="badge"><div class="dot green"></div> BLE: HC-05 Ready</div>
+      <div id="badge-cam" class="badge"><div class="dot green"></div> CAM: OV5647 FPV</div>
+      <div id="badge-sonic" class="badge"><div class="dot green"></div> Ultrasonic: D2</div>
+      <div id="badge-arduino" class="badge"><div class="dot green"></div> Arduino: Connected</div>
+      <div id="badge-imu" class="badge"><div class="dot green"></div> IMU: Active</div>
+      <div id="badge-gps" class="badge"><div class="dot yellow"></div> GPS: Acquiring</div>
     </div>
   </div>
 
   <div class="container">
-    <!-- SECTION 1: ARDUINO ROBOT CAR & MOTOR CONTROLLER -->
-    <div class="card">
-      <div class="card-head">
-        <h2>Arduino UNO &bull; 4WD Motor Controller & Optical Wheel Encoder</h2>
-        <span class="tag">Port: /dev/ttyUSB0 &bull; Baud: 9600</span>
-      </div>
-      <div class="robot-grid">
-        <!-- RPM Display -->
-        <div class="rpm-display">
-          <div class="sub">WHEEL ENCODER SPEED</div>
-          <div id="val-rpm" class="rpm-num">0.00</div>
-          <div class="sub" style="font-weight: 600; color: #fff;">REVOLUTIONS / MIN (RPM)</div>
-          <div style="margin-top: 8px; font-size: 13px; color: var(--blue); font-family: monospace;">
-            Linear: <span id="val-linear" style="font-weight: 700;">0.00 km/h</span>
+    <!-- TOP ROW: FPV CAMERA & VEHICLE MOTOR CONTROLLER -->
+    <div class="top-split">
+      <!-- FPV CAMERA FEED CARD -->
+      <div class="card">
+        <div class="card-head">
+          <h2>Live FPV Camera Feed (OmniVision OV5647)</h2>
+          <span class="tag">640x480 &bull; ~25 FPS</span>
+        </div>
+        <div class="cam-box">
+          <img src="/video_feed" alt="Live FPV Camera Stream" />
+          <div class="crosshair"></div>
+          <div class="cam-overlay">
+            <span>REC &#x25CF; LIVE FPV</span>
+            <span id="cam-hud-dist">SONIC: -- cm</span>
           </div>
         </div>
 
-        <!-- D-PAD Controls -->
-        <div class="dpad-container">
-          <div style="font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 2px;">
-            MOTOR COMMANDS (Arrow Keys / Click)
+        <!-- ULTRASONIC SENSOR PROXIMITY METER -->
+        <div class="sonic-container">
+          <div class="sonic-num">
+            <div id="sonic-cm" class="val">--</div>
+            <div class="lbl">DISTANCE (CM)</div>
           </div>
-          <div class="dpad-row">
-            <button class="btn-ctrl" id="btn-F" onclick="sendCmd('F')">&#x2B06; FORWARD</button>
-          </div>
-          <div class="dpad-row">
-            <button class="btn-ctrl" id="btn-L" onclick="sendCmd('L')">&#x2B05; LEFT</button>
-            <button class="btn-ctrl btn-stop" id="btn-S" onclick="sendCmd('S')">&#x23F9; STOP</button>
-            <button class="btn-ctrl" id="btn-R" onclick="sendCmd('R')">&#x27A1; RIGHT</button>
-          </div>
-          <div class="dpad-row">
-            <button class="btn-ctrl" id="btn-B" onclick="sendCmd('B')">&#x2B07; BACKWARD</button>
-          </div>
-        </div>
-
-        <!-- Vehicle Telemetry & Status -->
-        <div class="robot-info">
-          <div class="info-row">
-            <span style="color: var(--muted);">Active Command</span>
-            <span id="txt-last-cmd" class="val" style="color: var(--yellow);">STOP (S)</span>
-          </div>
-          <div class="info-row">
-            <span style="color: var(--muted);">Bluetooth Module</span>
-            <span class="val" style="font-size: 11px;">HC-05 (00:25:00:00:D6:05)</span>
-          </div>
-          <div class="info-row">
-            <span style="color: var(--muted);">Raw Serial Stream</span>
-            <span id="txt-raw-serial" class="val" style="font-size: 11px; color: var(--blue);">RPM:0.00</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- SECTION 2: IMU ACCELEROMETER -->
-    <div class="card">
-      <div class="card-head">
-        <h2>Grove IMU / 3-Axis Accelerometer (MMA7660)</h2>
-        <span class="tag">Port: I2C-1 &bull; Address: 0x4c</span>
-      </div>
-      <div class="imu-grid">
-        <div>
-          <div class="viewport-3d">
-            <div id="cube" class="cube">
-              <div class="face front">GrovePi</div>
-              <div class="face back">Back</div>
-              <div class="face right">Right</div>
-              <div class="face left">Left</div>
-              <div class="face top">TOP (Z)</div>
-              <div class="face bottom">Bottom</div>
+          <div class="sonic-meter">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 12px; font-weight: 600; color: var(--muted);">PROXIMITY WARNING:</span>
+              <span id="sonic-badge" class="sonic-status-tag" style="background: rgba(34, 197, 94, 0.2); color: var(--green);">CLEAR</span>
+            </div>
+            <div class="sonic-bar-bg">
+              <div id="sonic-bar" class="sonic-bar-fill" style="width: 100%;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--muted);">
+              <span>0 cm (STOP)</span>
+              <span>20 cm</span>
+              <span>50 cm</span>
+              <span>100+ cm</span>
             </div>
           </div>
-          <div style="text-align: center; margin-top: 4px; font-size: 11px; color: var(--muted);">3D Orientation</div>
+        </div>
+      </div>
+
+      <!-- ARDUINO 4WD CONTROLLER & ENCODER -->
+      <div class="card">
+        <div class="card-head">
+          <h2>Arduino UNO &bull; 4WD Motor Controller & Encoder</h2>
+          <span class="tag">/dev/ttyUSB0 &bull; 9600 Baud</span>
+        </div>
+        <div class="robot-grid">
+          <div class="rpm-display">
+            <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">WHEEL SPEED</div>
+            <div id="val-rpm" class="rpm-num">0.00</div>
+            <div style="font-size: 11px; color: var(--muted); font-weight: 600;">RPM</div>
+            <div style="margin-top: 6px; font-size: 12px; color: var(--blue); font-family: monospace;">
+              <span id="val-linear">0.00 km/h</span>
+            </div>
+          </div>
+
+          <div class="dpad-container">
+            <div style="font-size: 11px; color: var(--muted); font-weight: 600;">DRIVE CONTROLS (Arrows / Click)</div>
+            <div class="dpad-row">
+              <button class="btn-ctrl" id="btn-F" onclick="sendCmd('F')">&#x2B06; FWD</button>
+            </div>
+            <div class="dpad-row">
+              <button class="btn-ctrl" id="btn-L" onclick="sendCmd('L')">&#x2B05; LFT</button>
+              <button class="btn-ctrl btn-stop" id="btn-S" onclick="sendCmd('S')">&#x23F9; STOP</button>
+              <button class="btn-ctrl" id="btn-R" onclick="sendCmd('R')">&#x27A1; RGT</button>
+            </div>
+            <div class="dpad-row">
+              <button class="btn-ctrl" id="btn-B" onclick="sendCmd('B')">&#x2B07; REV</button>
+            </div>
+          </div>
+
+          <div class="robot-info">
+            <div class="info-row">
+              <span style="color: var(--muted);">Command</span>
+              <span id="txt-last-cmd" class="val" style="color: var(--yellow);">STOP (S)</span>
+            </div>
+            <div class="info-row">
+              <span style="color: var(--muted);">Bluetooth</span>
+              <span class="val" style="font-size: 10px;">HC-05 Active</span>
+            </div>
+            <div class="info-row">
+              <span style="color: var(--muted);">Serial</span>
+              <span id="txt-raw-serial" class="val" style="font-size: 10px; color: var(--blue);">RPM:0.00</span>
+            </div>
+          </div>
         </div>
 
-        <div class="angle-boxes">
-          <div class="angle-box">
-            <div class="lbl">PITCH (X)</div>
-            <div id="deg-pitch" class="deg">0.0°</div>
-          </div>
-          <div class="angle-box">
-            <div class="lbl">ROLL (Y)</div>
-            <div id="deg-roll" class="deg">0.0°</div>
-          </div>
-          <div class="angle-box" style="grid-column: span 2;">
-            <div class="lbl">TILT REGISTER</div>
-            <div id="val-tilt" style="font-family: monospace; font-size: 14px; font-weight: 700; color: #fff;">0x00</div>
-          </div>
-        </div>
-
-        <div class="gauges">
-          <div class="gauge">
-            <div class="gauge-top"><span>X-Axis</span><span id="txt-ax" class="val">+0.00 g</span></div>
-            <div class="gauge-bar-bg"><div id="bar-ax" class="gauge-bar" style="width: 50%;"></div></div>
-          </div>
-          <div class="gauge">
-            <div class="gauge-top"><span>Y-Axis</span><span id="txt-ay" class="val">+0.00 g</span></div>
-            <div class="gauge-bar-bg"><div id="bar-ay" class="gauge-bar" style="width: 50%;"></div></div>
-          </div>
-          <div class="gauge">
-            <div class="gauge-top"><span>Z-Axis</span><span id="txt-az" class="val">+0.00 g</span></div>
-            <div class="gauge-bar-bg"><div id="bar-az" class="gauge-bar" style="width: 50%;"></div></div>
-          </div>
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--card-border); font-size: 12px; color: var(--muted);">
+          Keyboard: <kbd style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:3px;">&uarr;</kbd> Forward &bull;
+          <kbd style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:3px;">&darr;</kbd> Backward &bull;
+          <kbd style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:3px;">&larr;</kbd> Left &bull;
+          <kbd style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:3px;">&rarr;</kbd> Right &bull;
+          <kbd style="background:rgba(255,255,255,0.1); padding:2px 5px; border-radius:3px;">Space</kbd> Stop
         </div>
       </div>
     </div>
 
-    <!-- SECTION 3: GPS MODULE -->
-    <div class="card">
-      <div class="card-head">
-        <h2>7SEMI U-blox NEO-M9N GNSS Receiver</h2>
-        <span class="tag">Port: I2C-2 &bull; Address: 0x42</span>
-      </div>
-      <div class="gps-grid">
-        <div>
-          <div class="gps-stats">
-            <div class="stat-card">
-              <div class="lbl">Fix Status</div>
-              <div id="gps-fix" class="val" style="color: var(--yellow);">Searching...</div>
+    <!-- BOTTOM ROW: IMU & GPS SENSORS -->
+    <div class="bottom-split">
+      <!-- IMU SENSOR -->
+      <div class="card">
+        <div class="card-head">
+          <h2>Grove IMU 3-Axis Accelerometer (MMA7660)</h2>
+          <span class="tag">Port: I2C-1 &bull; 0x4c</span>
+        </div>
+        <div class="imu-grid">
+          <div>
+            <div class="viewport-3d">
+              <div id="cube" class="cube">
+                <div class="face front">GrovePi</div>
+                <div class="face back">Back</div>
+                <div class="face right">Right</div>
+                <div class="face left">Left</div>
+                <div class="face top">Z+</div>
+                <div class="face bottom">Z-</div>
+              </div>
             </div>
-            <div class="stat-card">
-              <div class="lbl">Satellites</div>
-              <div id="gps-sats" class="val">0</div>
+            <div style="text-align: center; margin-top: 4px; font-size: 10px; color: var(--muted);">3D Orientation</div>
+          </div>
+
+          <div class="angle-boxes">
+            <div class="angle-box">
+              <div class="lbl">PITCH (X)</div>
+              <div id="deg-pitch" class="deg">0.0°</div>
             </div>
-            <div class="stat-card">
-              <div class="lbl">Latitude</div>
-              <div id="gps-lat" class="val">--.------°</div>
+            <div class="angle-box">
+              <div class="lbl">ROLL (Y)</div>
+              <div id="deg-roll" class="deg">0.0°</div>
             </div>
-            <div class="stat-card">
-              <div class="lbl">Longitude</div>
-              <div id="gps-lon" class="val">--.------°</div>
-            </div>
-            <div class="stat-card">
-              <div class="lbl">Altitude</div>
-              <div id="gps-alt" class="val">-- m</div>
-            </div>
-            <div class="stat-card">
-              <div class="lbl">Speed</div>
-              <div id="gps-speed" class="val">0.0 km/h</div>
-            </div>
-            <div class="stat-card">
-              <div class="lbl">HDOP</div>
-              <div id="gps-hdop" class="val">99.99</div>
-            </div>
-            <div class="stat-card">
-              <div class="lbl">UTC Time</div>
-              <div id="gps-utc" class="val">--:--:--</div>
+            <div class="angle-box" style="grid-column: span 2;">
+              <div class="lbl">TILT STATUS</div>
+              <div id="val-tilt" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #fff;">0x00</div>
             </div>
           </div>
 
-          <div class="nmea-feed" id="nmea-feed">
-            Listening on I2C-2 (Address 0x42)...
+          <div class="gauges">
+            <div class="gauge">
+              <div class="gauge-top"><span>X</span><span id="txt-ax" class="val">+0.00 g</span></div>
+              <div class="gauge-bar-bg"><div id="bar-ax" class="gauge-bar" style="width: 50%;"></div></div>
+            </div>
+            <div class="gauge">
+              <div class="gauge-top"><span>Y</span><span id="txt-ay" class="val">+0.00 g</span></div>
+              <div class="gauge-bar-bg"><div id="bar-ay" class="gauge-bar" style="width: 50%;"></div></div>
+            </div>
+            <div class="gauge">
+              <div class="gauge-top"><span>Z</span><span id="txt-az" class="val">+0.00 g</span></div>
+              <div class="gauge-bar-bg"><div id="bar-az" class="gauge-bar" style="width: 50%;"></div></div>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="radar-container">
-          <svg class="radar-svg" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="45" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1.5" fill="none"/>
-            <circle cx="50" cy="50" r="30" stroke="rgba(56, 189, 248, 0.3)" stroke-width="1" fill="none"/>
-            <circle cx="50" cy="50" r="15" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1" fill="none"/>
-            <line x1="5" y1="50" x2="95" y2="50" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1"/>
-            <line x1="50" y1="5" x2="50" y2="95" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1"/>
-            <text x="50" y="10" font-size="6" fill="#38bdf8" text-anchor="middle" font-weight="bold">N</text>
-            <text x="92" y="52" font-size="6" fill="#94a3b8" text-anchor="middle">E</text>
-            <text x="50" y="94" font-size="6" fill="#94a3b8" text-anchor="middle">S</text>
-            <text x="8" y="52" font-size="6" fill="#94a3b8" text-anchor="middle">W</text>
-            <circle id="radar-target" cx="50" cy="50" r="3.5" fill="#f59e0b">
-              <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite"/>
-            </circle>
-          </svg>
-          <div id="radar-caption" style="margin-top: 4px; font-size: 11px; color: var(--muted); font-weight: 500;">
-            Searching for Satellites...
+      <!-- GPS SENSOR -->
+      <div class="card">
+        <div class="card-head">
+          <h2>7SEMI U-blox NEO-M9N GNSS Receiver</h2>
+          <span class="tag">Port: I2C-2 &bull; 0x42</span>
+        </div>
+        <div class="gps-grid">
+          <div>
+            <div class="gps-stats">
+              <div class="stat-card">
+                <div class="lbl">Fix</div>
+                <div id="gps-fix" class="val" style="color: var(--yellow);">Searching</div>
+              </div>
+              <div class="stat-card">
+                <div class="lbl">Sats</div>
+                <div id="gps-sats" class="val">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="lbl">HDOP</div>
+                <div id="gps-hdop" class="val">99.9</div>
+              </div>
+              <div class="stat-card">
+                <div class="lbl">Latitude</div>
+                <div id="gps-lat" class="val">--.----°</div>
+              </div>
+              <div class="stat-card">
+                <div class="lbl">Longitude</div>
+                <div id="gps-lon" class="val">--.----°</div>
+              </div>
+              <div class="stat-card">
+                <div class="lbl">Speed</div>
+                <div id="gps-speed" class="val">0.0 km/h</div>
+              </div>
+            </div>
+            <div class="nmea-feed" id="nmea-feed">NMEA Stream Listening...</div>
+          </div>
+
+          <div class="radar-container">
+            <svg class="radar-svg" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="45" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1.5" fill="none"/>
+              <circle cx="50" cy="50" r="30" stroke="rgba(56, 189, 248, 0.3)" stroke-width="1" fill="none"/>
+              <circle cx="50" cy="50" r="15" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1" fill="none"/>
+              <line x1="5" y1="50" x2="95" y2="50" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1"/>
+              <line x1="50" y1="5" x2="50" y2="95" stroke="rgba(56, 189, 248, 0.2)" stroke-width="1"/>
+              <text x="50" y="10" font-size="6" fill="#38bdf8" text-anchor="middle" font-weight="bold">N</text>
+              <circle id="radar-target" cx="50" cy="50" r="3.5" fill="#f59e0b">
+                <animate attributeName="opacity" values="1;0.4;1" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+            <div id="radar-caption" style="margin-top: 3px; font-size: 10px; color: var(--muted);">Acquiring Lock...</div>
           </div>
         </div>
       </div>
@@ -841,7 +1042,6 @@ HTML_PAGE = """<!DOCTYPE html>
       if (activeEl) activeEl.classList.add('active');
     }
 
-    // Keyboard driving controls
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
       if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') sendCmd('F');
@@ -867,7 +1067,37 @@ HTML_PAGE = """<!DOCTYPE html>
         const res = await fetch('/api/telemetry');
         const d = await res.json();
 
-        // 1. Arduino Telemetry
+        // 1. Ultrasonic Sensor
+        if (d.ultrasonic && d.ultrasonic.connected) {
+          const dist = d.ultrasonic.distance_cm;
+          document.getElementById('sonic-cm').innerText = dist;
+          document.getElementById('cam-hud-dist').innerText = 'SONIC: ' + dist + ' cm';
+          
+          const bar = document.getElementById('sonic-bar');
+          const badge = document.getElementById('sonic-badge');
+          
+          let pct = Math.min(100, Math.max(5, (dist / 120) * 100));
+          bar.style.width = pct + '%';
+
+          if (d.ultrasonic.alert_level === 'red') {
+            bar.style.background = 'var(--red)';
+            badge.style.background = 'rgba(239, 68, 68, 0.25)';
+            badge.style.color = 'var(--red)';
+            badge.innerText = d.ultrasonic.warning;
+          } else if (d.ultrasonic.alert_level === 'yellow') {
+            bar.style.background = 'var(--yellow)';
+            badge.style.background = 'rgba(245, 158, 11, 0.25)';
+            badge.style.color = 'var(--yellow)';
+            badge.innerText = d.ultrasonic.warning;
+          } else {
+            bar.style.background = 'var(--green)';
+            badge.style.background = 'rgba(34, 197, 94, 0.25)';
+            badge.style.color = 'var(--green)';
+            badge.innerText = d.ultrasonic.warning;
+          }
+        }
+
+        // 2. Arduino Telemetry
         if (d.arduino && d.arduino.connected) {
           document.getElementById('badge-arduino').innerHTML = '<div class="dot green"></div> Arduino: Connected';
           document.getElementById('val-rpm').innerText = d.arduino.rpm.toFixed(2);
@@ -876,11 +1106,9 @@ HTML_PAGE = """<!DOCTYPE html>
 
           const cmdMap = { 'F': 'FORWARD (F)', 'B': 'BACKWARD (B)', 'L': 'LEFT (L)', 'R': 'RIGHT (R)', 'S': 'STOP (S)' };
           document.getElementById('txt-last-cmd').innerText = cmdMap[d.arduino.last_cmd] || d.arduino.last_cmd;
-        } else {
-          document.getElementById('badge-arduino').innerHTML = '<div class="dot red"></div> Arduino: Disconnected';
         }
 
-        // 2. IMU Telemetry
+        // 3. IMU Telemetry
         if (d.imu && d.imu.connected) {
           document.getElementById('badge-imu').innerHTML = '<div class="dot green"></div> IMU: Active';
           document.getElementById('deg-pitch').innerText = d.imu.pitch.toFixed(1) + '°';
@@ -897,11 +1125,9 @@ HTML_PAGE = """<!DOCTYPE html>
 
           const cube = document.getElementById('cube');
           cube.style.transform = `rotateX(${-d.imu.pitch}deg) rotateZ(${d.imu.roll}deg)`;
-        } else {
-          document.getElementById('badge-imu').innerHTML = '<div class="dot red"></div> IMU: Disconnected';
         }
 
-        // 3. GPS Telemetry
+        // 4. GPS Telemetry
         if (d.gps && d.gps.connected) {
           const fixTxt = document.getElementById('gps-fix');
           const radarCap = document.getElementById('radar-caption');
@@ -913,31 +1139,25 @@ HTML_PAGE = """<!DOCTYPE html>
             fixTxt.style.color = 'var(--green)';
             target.setAttribute('fill', '#22c55e');
             if (d.gps.latitude && d.gps.longitude) {
-              document.getElementById('gps-lat').innerText = d.gps.latitude.toFixed(6) + '°';
-              document.getElementById('gps-lon').innerText = d.gps.longitude.toFixed(6) + '°';
-              radarCap.innerText = `${d.gps.latitude.toFixed(4)}°, ${d.gps.longitude.toFixed(4)}°`;
+              document.getElementById('gps-lat').innerText = d.gps.latitude.toFixed(4) + '°';
+              document.getElementById('gps-lon').innerText = d.gps.longitude.toFixed(4) + '°';
+              radarCap.innerText = `${d.gps.latitude.toFixed(3)}°, ${d.gps.longitude.toFixed(3)}°`;
             }
           } else {
-            document.getElementById('badge-gps').innerHTML = '<div class="dot yellow"></div> GPS: Acquiring Satellites';
+            document.getElementById('badge-gps').innerHTML = '<div class="dot yellow"></div> GPS: Acquiring';
             fixTxt.innerText = d.gps.fix_quality;
             fixTxt.style.color = 'var(--yellow)';
             target.setAttribute('fill', '#f59e0b');
-            document.getElementById('gps-lat').innerText = '--.------°';
-            document.getElementById('gps-lon').innerText = '--.------°';
-            radarCap.innerText = 'Searching for Satellites...';
+            radarCap.innerText = 'Acquiring Satellites...';
           }
 
           document.getElementById('gps-sats').innerText = d.gps.satellites;
-          document.getElementById('gps-alt').innerText = (d.gps.altitude_m !== null) ? d.gps.altitude_m.toFixed(1) + ' m' : '-- m';
           document.getElementById('gps-speed').innerText = d.gps.speed_kmh.toFixed(1) + ' km/h';
-          document.getElementById('gps-hdop').innerText = d.gps.hdop.toFixed(2);
-          document.getElementById('gps-utc').innerText = d.gps.utc_time || '--:--:--';
+          document.getElementById('gps-hdop').innerText = d.gps.hdop.toFixed(1);
 
           if (d.gps.raw_sentences && d.gps.raw_sentences.length > 0) {
-            document.getElementById('nmea-feed').innerHTML = d.gps.raw_sentences.slice(-2).join('<br>');
+            document.getElementById('nmea-feed').innerHTML = d.gps.raw_sentences.slice(-1).join('');
           }
-        } else {
-          document.getElementById('badge-gps').innerHTML = '<div class="dot red"></div> GPS: Disconnected';
         }
       } catch (err) {
         console.error(err);
@@ -959,6 +1179,18 @@ def index():
 def get_telemetry():
     return jsonify(telemetry)
 
+@app.route("/video_feed")
+def video_feed():
+    def generate():
+        while True:
+            with camera_lock:
+                frame = camera_frame
+            if frame:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            time.sleep(0.04)
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
 @app.route("/api/motor", methods=["GET", "POST"])
 def motor_control():
     cmd = request.args.get("cmd")
@@ -971,11 +1203,17 @@ def motor_control():
 
 if __name__ == "__main__":
     init_bus()
+    t_cam = threading.Thread(target=camera_worker, daemon=True)
+    t_sonic = threading.Thread(target=ultrasonic_worker, daemon=True)
     t_imu = threading.Thread(target=imu_worker, daemon=True)
     t_gps = threading.Thread(target=gps_worker, daemon=True)
     t_ard = threading.Thread(target=arduino_worker, daemon=True)
+    
+    t_cam.start()
+    t_sonic.start()
     t_imu.start()
     t_gps.start()
     t_ard.start()
-    print("Starting GrovePi & Arduino Integrated Telemetry Server on port 5000...")
+    
+    print("Starting Autonomous Robot Telemetry Server on port 5000...")
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
