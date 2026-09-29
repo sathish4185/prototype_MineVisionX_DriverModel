@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mine Vision-X | Central Fleet Control Room & Security Surveillance</title>
+  <!-- Google Fonts: Rajdhani, Orbitron, Inter, Share Tech Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <!-- Main Styling -->
+  <link rel="stylesheet" href="/static/css/control_room.css">
+  <!-- Three.js for 3D Attitude Gyro -->
+  <script src="/static/js/three.min.js"></script>
+</head>
+<body class="theme-command-room">
+
+  <!-- ================= TOP CENTRAL COMMAND HEADER ================= -->
+  <header class="command-header">
+    <div class="header-left">
+      <div class="brand-crest">
+        <div class="radar-spinner"></div>
+        <div class="brand-text">
+          <h1>MINE VISION-X <span>CENTRAL FLEET CONTROL</span></h1>
+          <p class="subtitle">SECURITY SURVEILLANCE & TELEMETRY DISPATCH HQ &bull; OPEN-PIT SECTOR 4</p>
+        </div>
+      </div>
+      <div class="transmute-badge">
+        <span class="pulse-beacon"></span>
+        <span class="badge-label">TELEMETRY TRANSMUTED VIA LORA MESH / 4G APN</span>
+      </div>
+    </div>
+
+    <!-- Central Global Status Pills -->
+    <div class="header-center">
+      <div class="stat-pill">
+        <span class="label">FLEET MONITORED</span>
+        <span class="value" id="val-active-count">6 HEMM</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">LORA GATEWAY</span>
+        <span class="value val-green" id="val-gateway-status">ONLINE (99.8% PDR)</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">FOG PROTOCOL</span>
+        <span class="value" id="val-fog-protocol">STANDBY</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">MINE SHIFT</span>
+        <span class="value">SHIFT A (06:00 - 14:00)</span>
+      </div>
+    </div>
+
+    <!-- Header Controls -->
+    <div class="header-right">
+      <div class="clock-box">
+        <div class="utc-clock" id="live-clock">--:--:-- UTC</div>
+        <div class="mine-tz">LOCAL TIME: DHANBAD BASIN</div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-ctrl-mode active" id="btn-mode-wall" onclick="setViewMode('wall')" title="Video Wall Command View">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          COMMAND WALL
+        </button>
+        <button class="btn-ctrl-mode" id="btn-mode-map" onclick="setViewMode('map')" title="Full Tactical GIS Map View">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke_width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          TACTICAL GIS
+        </button>
+        <button class="btn-bridge-config" onclick="openBridgeModal()" title="Configure Physical Vehicle Bridge IP">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          VEHICLE LINK
+        </button>
+        <button class="btn-audio-toggle" id="btn-audio-toggle" onclick="toggleAudio()" title="Mute/Unmute Audio Sirens">
+          <span id="audio-icon">🔊</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= FLEET SELECTOR STRIP ================= -->
+  <nav class="fleet-selector-bar">
+    <div class="bar-title">FLEET UNITS:</div>
+    <div class="vehicle-cards-wrapper" id="fleet-pills-container">
+      <!-- Injected by JavaScript -->
+    </div>
+  </nav>
+
+  <!-- ================= MAIN SURVEILLANCE & TELEMETRY GRID ================= -->
+  <main class="control-room-grid" id="main-grid">
+
+    <!-- LEFT COLUMN: LIVE VIDEO & OPTICAL/THERMAL SURVEILLANCE -->
+    <section class="panel panel-surveillance">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          <span id="cam-panel-title">LIVE SURVEILLANCE FEED &bull; HEMM-101</span>
+        </div>
+        <div class="cam-tabs">
+          <button class="cam-tab active" id="tab-optical" onclick="setCamTab('optical')">OPTICAL CSI</button>
+          <button class="cam-tab" id="tab-thermal" onclick="setCamTab('thermal')">THERMAL IR</button>
+          <button class="cam-tab" id="tab-quad" onclick="setCamTab('quad')">QUAD WALL</button>
+        </div>
+      </div>
+
+      <!-- Main Video Screen Viewport -->
+      <div class="video-viewport" id="video-viewport">
+        <!-- Live Stream Canvas/Img -->
+        <img id="live-stream-img" class="surveillance-feed-img" src="/video_feed/HEMM-101" alt="Surveillance Stream">
+
+        <!-- AI Perception Overlay -->
+        <div class="ai-overlay" id="ai-overlay">
+          <div class="reticle-crosshair"></div>
+          <div class="hud-corner hud-top-left">
+            <span>RES: 1080p @ 25 FPS</span>
+            <span id="hud-cam-type">SENSOR: SONY IMX / OV5647 CSI</span>
+          </div>
+          <div class="hud-corner hud-top-right">
+            <span class="live-rec-dot">REC &bull; LIVE</span>
+            <span id="hud-link-type">LINK: LoRa MESH / 4G APN</span>
+          </div>
+          <div class="hud-corner hud-bottom-left">
+            <span id="hud-ai-objects">AI DETECTIONS: 1 DUMP TRUCK (96%)</span>
+            <span id="hud-fog-status">FOG ENHANCER: ACTIVE</span>
+          </div>
+          <div class="hud-corner hud-bottom-right">
+            <span id="hud-distance-readout">RADAR RANGE: 34.2 m</span>
+            <span id="hud-speed-readout">SPEED: 22.4 km/h</span>
+          </div>
+        </div>
+
+        <!-- Quad Multi-Camera Grid (Hidden by default) -->
+        <div class="quad-grid-overlay" id="quad-grid" style="display: none;">
+          <div class="quad-cell" onclick="selectVehicle('HEMM-101')">
+            <img src="/video_feed/HEMM-101" alt="HEMM-101">
+            <span class="cell-label">HEMM-101 (Mine Vision-X)</span>
+          </div>
+          <div class="quad-cell" onclick="selectVehicle('HEMM-102')">
+            <img src="/video_feed/HEMM-102" alt="HEMM-102">
+            <span class="cell-label">HEMM-102 (Crusher Run)</span>
+          </div>
+          <div class="quad-cell" onclick="selectVehicle('HEMM-204')">
+            <img src="/video_feed/HEMM-204" alt="HEMM-204">
+            <span class="cell-label">HEMM-204 (Bench Shovel)</span>
+          </div>
+          <div class="quad-cell" onclick="selectVehicle('LMV-012')">
+            <img src="/video_feed/LMV-012" alt="LMV-012">
+            <span class="cell-label">LMV-012 (Patrol 4x4)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video Control Toolstrip -->
+      <div class="video-toolstrip">
+        <div class="toolstrip-left">
+          <label class="switch-toggle" title="Toggle AI Object Detection Overlays">
+            <input type="checkbox" id="chk-ai-boxes" checked onchange="toggleAiBoxes(this.checked)">
+            <span class="slider"></span>
+            <span class="toggle-text">AI Bounding Boxes</span>
+          </label>
+          <label class="switch-toggle" title="Enhance Contrast & Edge Detection for Dust/Fog">
+            <input type="checkbox" id="chk-fog-filter" checked onchange="toggleFogFilter(this.checked)">
+            <span class="slider"></span>
+            <span class="toggle-text">Fog Penetration Filter</span>
+          </label>
+        </div>
+        <div class="toolstrip-right">
+          <button class="btn-tool" onclick="takeSnapshot()" title="Capture High-Res Security Frame">📸 SNAPSHOT</button>
+          <button class="btn-tool" onclick="toggleFullscreen()" title="Fullscreen Video Mode">⛶ EXPAND</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTER COLUMN: OPEN-PIT MINE TACTICAL GIS & GNSS TRACKING -->
+    <section class="panel panel-gis-map">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+          <span>OPEN-CAST MINE PIT GIS TRACKING &bull; DHANBAD BASIN</span>
+        </div>
+        <div class="map-badges">
+          <span class="badge-gnss">NEO-M9N GNSS</span>
+          <span class="badge-sats" id="map-sats-count">16 SATELLITES</span>
+          <span class="badge-hdop" id="map-hdop-val">HDOP: 0.85</span>
+        </div>
+      </div>
+
+      <!-- Interactive SVG Vector Map Viewport -->
+      <div class="gis-map-viewport" id="gis-map-container">
+        <svg id="mine-map-svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+          <!-- Defined in map_engine.js -->
+        </svg>
+
+        <!-- Map Floating Legend -->
+        <div class="map-legend">
+          <div class="legend-row"><span class="leg-dot dot-truck"></span> Haul Trucks</div>
+          <div class="legend-row"><span class="leg-dot dot-excavator"></span> Excavators / Shovels</div>
+          <div class="legend-row"><span class="leg-dot dot-loader"></span> Loaders / Dozers</div>
+          <div class="legend-row"><span class="leg-dot dot-patrol"></span> Security Patrol</div>
+          <div class="legend-row"><span class="leg-box box-blast"></span> Blast Danger Zone</div>
+          <div class="legend-row"><span class="leg-dot dot-tower"></span> LoRa Repeater Towers</div>
+        </div>
+
+        <!-- Coordinates HUD overlay -->
+        <div class="map-coords-hud">
+          <div>LAT: <span id="hud-lat">23.795400° N</span></div>
+          <div>LON: <span id="hud-lon">86.430800° E</span></div>
+          <div>ALT: <span id="hud-alt">242.0 m</span></div>
+          <div>GRID: <span id="hud-grid">SECTOR 4 - BENCH C</span></div>
+        </div>
+      </div>
+
+      <!-- Haul Road Traffic Flow Indicator -->
+      <div class="map-footer-strip">
+        <div class="strip-item">
+          <span class="strip-label">HAUL ROAD STATUS:</span>
+          <span class="strip-val val-green">OPEN &bull; MODERATE DUST</span>
+        </div>
+        <div class="strip-item">
+          <span class="strip-label">BLAST ZONE:</span>
+          <span class="strip-val val-red">BENCH 6 NO-ENTRY (ACTIVE DRILLING)</span>
+        </div>
+        <div class="strip-item">
+          <span class="strip-label">NEAREST VEHICLE SEPARATION:</span>
+          <span class="strip-val" id="val-min-separation">34.2 m (SAFE)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: MULTI-SPECTRAL SENSORS & 3D ATTITUDE TELEMETRY -->
+    <section class="panel panel-telemetry">
+      <div class="panel-header">
+        <div class="panel-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span id="telemetry-panel-title">VEHICLE SENSOR FUSION &bull; HEMM-101</span>
+        </div>
+        <span class="status-pill-small" id="vehicle-health-badge">HEALTH: 100% NOMINAL</span>
+      </div>
+
+      <div class="telemetry-scroll-wrapper">
+        
+        <!-- SECTION 1: 77 GHz mmWAVE RADAR POLAR SCOPE -->
+        <div class="telemetry-subcard">
+          <div class="subcard-header">
+            <span>77 GHz mmWave RADAR POLAR SCOPE</span>
+            <span class="radar-tag" id="radar-alert-tag">CAUTION</span>
+          </div>
+          <div class="radar-scope-container">
+            <canvas id="radar-canvas" width="280" height="180"></canvas>
+            <div class="radar-readouts">
+              <div class="readout-item">
+                <span class="r-label">TARGET RANGE</span>
+                <span class="r-val" id="radar-dist-val">34.2 m</span>
+              </div>
+              <div class="readout-item">
+                <span class="r-label">REL. VELOCITY</span>
+                <span class="r-val" id="radar-relspd-val">-2.1 km/h</span>
+              </div>
+              <div class="readout-item">
+                <span class="r-label">BEAM ANGLE</span>
+                <span class="r-val" id="radar-angle-val">+2.5°</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: 3D IMU ATTITUDE & ROLLOVER PROTECTION (MMA7660) -->
+        <div class="telemetry-subcard">
+          <div class="subcard-header">
+            <span>3D ATTITUDE & ROLLOVER DYNAMICS (MMA7660)</span>
+            <span class="imu-tag" id="imu-risk-tag">SAFE</span>
+          </div>
+          <div class="attitude-gyro-container">
+            <div class="gyro-canvas-box" id="gyro-3d-box">
+              <!-- Three.js 3D Truck Model Injected Here -->
+            </div>
+            <div class="gyro-readouts">
+              <div class="gyro-item">
+                <span class="g-lbl">PITCH (SLOPE)</span>
+                <span class="g-val" id="val-pitch">+3.8°</span>
+              </div>
+              <div class="gyro-item">
+                <span class="g-lbl">ROLL (TILT)</span>
+                <span class="g-val" id="val-roll">-1.4°</span>
+              </div>
+              <div class="gyro-item">
+                <span class="g-lbl">LATERAL G</span>
+                <span class="g-val" id="val-ay">+0.08 g</span>
+              </div>
+              <div class="gyro-item">
+                <span class="g-lbl">VERTICAL G</span>
+                <span class="g-val" id="val-az">+0.98 g</span>
+              </div>
+            </div>
+          </div>
+          <!-- Incline Danger Progress Bar -->
+          <div class="tilt-bar-wrapper">
+            <div class="bar-labels">
+              <span>Haul Road Slope Safety:</span>
+              <span id="slope-text">3.8° (Safe limit: 12.0°)</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill" id="slope-bar-fill" style="width: 31%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3: POWERTRAIN & SUB-METER ULTRASONIC RANGING -->
+        <div class="telemetry-subcard">
+          <div class="subcard-header">
+            <span>POWERTRAIN & ULTRASONIC (PORT D2)</span>
+            <span class="port-tag">ARDUINO 4WD &bull; /dev/ttyUSB0</span>
+          </div>
+          <div class="powertrain-grid">
+            <div class="gauge-card">
+              <div class="gauge-title">WHEEL SPEED</div>
+              <div class="gauge-value" id="val-speed">22.4</div>
+              <div class="gauge-unit">km/h</div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-title">ENCODER RPM</div>
+              <div class="gauge-value" id="val-rpm">1850</div>
+              <div class="gauge-unit">RPM</div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-title">PROXIMITY (D2)</div>
+              <div class="gauge-value" id="val-ultrasonic">68.0</div>
+              <div class="gauge-unit">cm</div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-title">ENGINE LOAD</div>
+              <div class="gauge-value" id="val-load">68%</div>
+              <div class="gauge-unit">Diesel Turbo</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 4: LORA MESH & TRANSMUTATION NETWORK HEALTH -->
+        <div class="telemetry-subcard">
+          <div class="subcard-header">
+            <span>WIRELESS TRANSMUTATION LINK HEALTH</span>
+            <span class="mesh-tag" id="network-protocol-tag">LoRa MESH SF8 &bull; 868 MHz</span>
+          </div>
+          <div class="network-diagnostics-grid">
+            <div class="diag-item">
+              <span class="d-label">SIGNAL (RSSI)</span>
+              <span class="d-val" id="val-rssi">-76 dBm</span>
+            </div>
+            <div class="diag-item">
+              <span class="d-label">SNR</span>
+              <span class="d-val" id="val-snr">+9.4 dB</span>
+            </div>
+            <div class="diag-item">
+              <span class="d-label">PDR (PACKET RATIO)</span>
+              <span class="d-val val-green" id="val-pdr">99.8%</span>
+            </div>
+            <div class="diag-item">
+              <span class="d-label">TRANSMUTE LATENCY</span>
+              <span class="d-val" id="val-latency">38 ms</span>
+            </div>
+          </div>
+          <div class="gateway-link-info">
+            <span>Linked Gateway: <strong id="val-gateway-node">GW-TOWER-NORTH</strong> (Hop: 1)</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= BOTTOM DISPATCHER COMMAND DECK & INCIDENT BLACKBOX ================= -->
+  <footer class="bottom-command-deck">
+    
+    <!-- LEFT: DISPATCHER TELE-ACTIONS (AWAY-FROM-VEHICLE CONTROLS) -->
+    <div class="deck-tele-actions">
+      <div class="deck-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        DISPATCHER REMOTE TELE-CONTROL DECK
+      </div>
+      <div class="action-buttons-row">
+        <button class="btn-action btn-estop" onclick="triggerRemoteEstop()" title="Remotely cut propulsion power to selected HEMM vehicle">
+          <span class="btn-icon">🛑</span>
+          <div class="btn-text">
+            <strong>REMOTE E-STOP</strong>
+            <small>Emergency Braking</small>
+          </div>
+        </button>
+
+        <button class="btn-action btn-horn" onclick="triggerRemoteHorn()" title="Sound vehicle external acoustic warning siren">
+          <span class="btn-icon">📢</span>
+          <div class="btn-text">
+            <strong>BLAST SIREN</strong>
+            <small>Acoustic Alert</small>
+          </div>
+        </button>
+
+        <button class="btn-action btn-fog" onclick="toggleGlobalFogMode()" title="Enforce Convoy Speed Limit & 50m Spacing">
+          <span class="btn-icon">🌫️</span>
+          <div class="btn-text">
+            <strong>FOG PROTOCOL</strong>
+            <small id="btn-fog-sub">Activate Safe Mode</small>
+          </div>
+        </button>
+
+        <div class="cabin-dispatch-input-box">
+          <input type="text" id="txt-cabin-msg" placeholder="Broadcast message to vehicle in-cabin HUD..." value="CONVOY SPEED 25 KM/H ENFORCED">
+          <button class="btn-send-msg" onclick="sendCabinMessage()">TRANSMIT TO CABIN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: SECURITY INCIDENT BLACKBOX STREAM -->
+    <div class="deck-incident-blackbox">
+      <div class="deck-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        SECURITY & PROXIMITY INCIDENT AUDIT STREAM
+      </div>
+      <div class="incidents-scroller" id="incidents-container">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+
+  </footer>
+
+  <!-- ================= MODAL: PHYSICAL VEHICLE BRIDGE CONFIGURATION ================= -->
+  <div class="modal-backdrop" id="modal-bridge" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>VEHICLE TELEMETRY BRIDGE SETTINGS</h3>
+        <button class="btn-close-modal" onclick="closeBridgeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>The Central Office can ingest real-time telemetry transmitted from your physical vehicle edge computer (Raspberry Pi 4 / NVIDIA Jetson Orin Nano / Local Port 5000).</p>
+        <div class="form-group">
+          <label>Target Vehicle Local / Network IP & Port:</label>
+          <input type="text" id="bridge-url-input" class="form-control" value="http://127.0.0.1:5000" placeholder="e.g. http://192.168.1.100:5000">
+        </div>
+        <div class="bridge-status-indicator">
+          <span>Bridge Connection Status:</span>
+          <strong id="modal-bridge-status" class="val-green">Ready / Standby</strong>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-secondary" onclick="closeBridgeModal()">Cancel</button>
+        <button class="btn-modal-primary" onclick="saveBridgeUrl()">Save & Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Alert Synthesizer for Siren & Proximity Warning -->
+  <audio id="audio-siren-synth" preload="none"></audio>
+
+  <!-- Application Scripts -->
+  <script src="/static/js/sound_effects.js"></script>
+  <script src="/static/js/radar_visualizer.js"></script>
+  <script src="/static/js/attitude_gyro.js"></script>
+  <script src="/static/js/map_engine.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

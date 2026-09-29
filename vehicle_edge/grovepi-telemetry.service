@@ -1,0 +1,14 @@
+[Unit]
+Description=GrovePi & Arduino Robot Telemetry Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Desktop/robot_project
+ExecStart=/usr/bin/python3 /home/pi/Desktop/robot_project/app.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

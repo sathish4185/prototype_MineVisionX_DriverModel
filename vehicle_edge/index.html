@@ -1,0 +1,3728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mine Vision-X | AI-Based HEMM Safety & Fleet Monitoring</title>
+  <!-- Google Fonts: Rajdhani, Inter & Share Tech Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <!-- Three.js (Locally Served for 3D Dumper Model Simulation) -->
+  <script src="/static/three.min.js"></script>
+  <!-- Leaflet CSS & JS for Live Google Maps Representation (Locally Served) -->
+  <link rel="stylesheet" href="/static/leaflet.css">
+  <script src="/static/leaflet.js"></script>
+
+  <style>
+    :root {
+      --bg-space: #030712;
+      --card-bg: #07111e;
+      --card-bg-gradient: linear-gradient(180deg, #091526 0%, #050b14 100%);
+      --card-border: rgba(0, 229, 255, 0.28);
+      --card-border-dim: rgba(0, 229, 255, 0.15);
+      --cyan: #00e5ff;
+      --cyan-glow: rgba(0, 229, 255, 0.4);
+      --green: #00e676;
+      --green-glow: rgba(0, 230, 118, 0.4);
+      --yellow: #ffd600;
+      --yellow-glow: rgba(255, 214, 0, 0.4);
+      --red: #ff1744;
+      --red-glow: rgba(255, 23, 68, 0.4);
+      --blue: #2979ff;
+      --text: #ffffff;
+      --text-dim: #90a4ae;
+      --text-muted: #546e7a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-space);
+      background-image: 
+        radial-gradient(circle at 50% -20%, rgba(0, 229, 255, 0.08) 0%, transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(0, 100, 255, 0.05) 0%, transparent 50%);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 14px;
+      overflow-x: hidden;
+    }
+
+    /* ================= TOP HEADER ================= */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 12px 10px 12px;
+      margin-bottom: 8px;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand-text h1 {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #ffffff;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .brand-text h1 span {
+      color: var(--cyan);
+      text-shadow: 0 0 14px var(--cyan-glow);
+    }
+
+    .mode-pill {
+      border: 1.5px solid var(--green);
+      background: rgba(0, 230, 118, 0.08);
+      color: var(--green);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      padding: 5px 16px;
+      border-radius: 999px;
+      box-shadow: 0 0 12px rgba(0, 230, 118, 0.2), inset 0 0 8px rgba(0, 230, 118, 0.1);
+      text-transform: uppercase;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .live-clock {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 14px;
+      color: #e0f2fe;
+      letter-spacing: 0.8px;
+    }
+
+    .btn-icon-mode {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border-dim);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #e2e8f0;
+      transition: all 0.2s;
+    }
+    .btn-icon-mode:hover {
+      background: rgba(0, 229, 255, 0.15);
+      color: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+    }
+
+    .badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 230, 118, 0.12);
+      border: 1.5px solid var(--green);
+      color: var(--green);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 4px 14px;
+      border-radius: 999px;
+      box-shadow: 0 0 10px rgba(0, 230, 118, 0.3);
+    }
+    .dot-pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulseGreen 1.6s infinite ease-in-out;
+    }
+
+    @keyframes pulseGreen {
+      0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 8px var(--green); }
+      50% { opacity: 0.4; transform: scale(0.85); box-shadow: 0 0 2px var(--green); }
+    }
+
+    /* ================= MAIN DASHBOARD CONTAINER ================= */
+    .dashboard-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .card {
+      background: var(--card-bg-gradient);
+      border: 1.5px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 0 12px rgba(0, 229, 255, 0.03);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ================= TOP SECTION (CAMERA - ULTRASONIC & IMU - FLEET MAP) ================= */
+    .top-row {
+      display: grid;
+      grid-template-columns: 1.05fr 0.65fr 0.70fr;
+      gap: 10px;
+      min-height: 330px;
+    }
+
+    @media (max-width: 1100px) {
+      .top-row { grid-template-columns: 1fr; }
+    }
+
+    /* PANEL 1: AI CAMERA */
+    .cam-panel {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      padding: 0;
+      background: #000;
+    }
+    .cam-viewport {
+      width: 100%;
+      height: 100%;
+      min-height: 330px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+    .cam-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: filter 0.3s;
+    }
+
+    /* Fog-Safe & Thermal filters */
+    .fog-safe-active {
+      filter: contrast(1.7) brightness(1.2) drop-shadow(0 0 8px rgba(0, 229, 255, 0.5));
+    }
+
+    /* AI Bounding Boxes overlay */
+    .ai-boxes-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    /* Bounding Box 1: Obstacle ahead (Dynamic position & scale based on Port D2!) */
+    .bbox-dynamic-obstacle {
+      position: absolute;
+      border: 2px solid var(--red);
+      box-shadow: 0 0 10px rgba(255, 23, 68, 0.7), inset 0 0 6px rgba(255, 23, 68, 0.25);
+      border-radius: 3px;
+      transition: all 0.15s ease-out;
+      display: flex;
+      flex-direction: column;
+    }
+    .bbox-tag-red {
+      position: absolute;
+      top: -24px;
+      left: -2px;
+      background: var(--red);
+      color: #fff;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 2px;
+      white-space: nowrap;
+      box-shadow: 0 0 6px rgba(255, 23, 68, 0.5);
+    }
+
+    /* Peripheral hazard boxes */
+    .bbox-person {
+      position: absolute;
+      top: 42%;
+      left: 18%;
+      width: 8%;
+      height: 28%;
+      border: 2px solid var(--yellow);
+      box-shadow: 0 0 8px rgba(255, 214, 0, 0.6), inset 0 0 6px rgba(255, 214, 0, 0.2);
+      border-radius: 2px;
+    }
+    .bbox-person .bbox-tag {
+      position: absolute;
+      top: -22px;
+      left: -2px;
+      background: var(--yellow);
+      color: #000;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    .bbox-excavator {
+      position: absolute;
+      top: 30%;
+      left: 76%;
+      width: 18%;
+      height: 34%;
+      border: 2px solid var(--green);
+      box-shadow: 0 0 8px rgba(0, 230, 118, 0.6), inset 0 0 6px rgba(0, 230, 118, 0.2);
+      border-radius: 2px;
+    }
+    .bbox-excavator .bbox-tag {
+      position: absolute;
+      top: -22px;
+      left: -2px;
+      background: var(--green);
+      color: #000;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    /* Bottom Overlay HUD Bar */
+    .cam-bottom-bar {
+      position: absolute;
+      bottom: 8px;
+      left: 10px;
+      right: 10px;
+      background: rgba(3, 7, 18, 0.88);
+      border: 1px solid rgba(0, 229, 255, 0.35);
+      border-radius: 6px;
+      padding: 6px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: #e0f2fe;
+      backdrop-filter: blur(5px);
+    }
+    .cam-info-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cam-icon {
+      color: var(--cyan);
+      font-size: 15px;
+    }
+    .cam-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cam-action-btn {
+      background: transparent;
+      border: 1px solid var(--card-border-dim);
+      color: var(--cyan);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .cam-action-btn:hover {
+      background: rgba(0, 229, 255, 0.2);
+      box-shadow: 0 0 6px var(--cyan);
+    }
+
+    /* ================= MIDDLE COLUMN (EQUAL 50/50 SPLIT: ULTRASONIC & 3D IMU) ================= */
+    .middle-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100%;
+    }
+
+    /* EQUAL HEIGHT PANELS (NO CONGESTION) */
+    .sonic-compact-panel,
+    .imu-compact-panel {
+      flex: 1 1 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 10px 14px 10px 14px;
+      position: relative;
+    }
+
+    /* 1. ULTRASONIC SENSOR STYLES */
+    .sonic-compact-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .sonic-compact-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: #ffffff;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sonic-compact-val {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--red);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-shadow: 0 0 8px rgba(255, 23, 68, 0.6);
+      transition: color 0.3s;
+    }
+
+    .sonic-radar-stage-compact {
+      position: relative;
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.28);
+      border-radius: 8px;
+      border: 1px solid rgba(0, 229, 255, 0.16);
+      overflow: hidden;
+    }
+    .radar-arcs-svg-compact {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+    }
+    .arc-active-pulse {
+      animation: radarPulse 1.2s infinite ease-in-out;
+    }
+    @keyframes radarPulse {
+      0%, 100% { opacity: 1; filter: drop-shadow(0 0 6px rgba(255, 23, 68, 0.9)); }
+      50% { opacity: 0.45; filter: drop-shadow(0 0 1px rgba(255, 23, 68, 0.3)); }
+    }
+
+    /* 2. 3D IMU SENSOR STYLES */
+    .imu-compact-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .imu-compact-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: #ffffff;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Main Grid: Left (Big Simulation) & Right (Pitch/Roll + Big Warning) */
+    .imu-main-grid {
+      display: grid;
+      grid-template-columns: 145px 1fr;
+      gap: 10px;
+      align-items: stretch;
+      margin-bottom: 6px;
+    }
+
+    /* Left Column: Big 3D Simulation Viewport */
+    .imu-sim-col {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .viewport-3d-big {
+      width: 100%;
+      height: 124px;
+      min-height: 120px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 50%, rgba(255, 23, 68, 0.16) 0%, rgba(5, 11, 20, 0.92) 100%);
+      border-radius: 8px;
+      border: 1.5px solid rgba(255, 23, 68, 0.45);
+      box-shadow: inset 0 0 16px rgba(255, 23, 68, 0.18), 0 4px 14px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+    }
+    .viewport-3d-big:active {
+      cursor: grabbing;
+    }
+    #imu-3d-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .imu-sim-badge {
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.75);
+      background: rgba(5, 12, 22, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 1px 7px;
+      border-radius: 3px;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* Right Column: Pitch/Roll + Big Warning Box */
+    .imu-metrics-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      justify-content: space-between;
+    }
+    .imu-angles-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .imu-metric-box {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--card-border-dim);
+      border-radius: 6px;
+      padding: 4px 6px;
+      text-align: center;
+    }
+    .imu-metric-box .metric-lbl {
+      font-size: 9.5px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .imu-metric-box .metric-val {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan-glow);
+    }
+
+    /* Dedicated Big Warning Box */
+    .imu-warning-card {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: all 0.3s ease;
+      min-height: 64px;
+    }
+    .imu-warning-card.warning-safe {
+      background: radial-gradient(circle at 50% 50%, rgba(0, 230, 118, 0.15) 0%, rgba(9, 13, 22, 0.95) 100%);
+      border: 1.5px solid rgba(0, 230, 118, 0.5);
+      box-shadow: 0 0 12px rgba(0, 230, 118, 0.15), inset 0 0 10px rgba(0, 230, 118, 0.05);
+    }
+    .imu-warning-card.warning-safe .warning-icon {
+      color: var(--green);
+      font-size: 20px;
+      filter: drop-shadow(0 0 6px rgba(0, 230, 118, 0.8));
+    }
+    .imu-warning-card.warning-safe .warning-title {
+      color: var(--green);
+      text-shadow: 0 0 8px rgba(0, 230, 118, 0.6);
+    }
+
+    .imu-warning-card.warning-caution {
+      background: radial-gradient(circle at 50% 50%, rgba(255, 214, 0, 0.18) 0%, rgba(9, 13, 22, 0.95) 100%);
+      border: 1.5px solid rgba(255, 214, 0, 0.6);
+      box-shadow: 0 0 14px rgba(255, 214, 0, 0.25);
+    }
+    .imu-warning-card.warning-caution .warning-icon {
+      color: var(--yellow);
+      font-size: 20px;
+      filter: drop-shadow(0 0 8px rgba(255, 214, 0, 0.8));
+    }
+    .imu-warning-card.warning-caution .warning-title {
+      color: var(--yellow);
+      text-shadow: 0 0 8px rgba(255, 214, 0, 0.7);
+    }
+
+    .imu-warning-card.warning-critical {
+      background: radial-gradient(circle at 50% 50%, rgba(255, 23, 68, 0.28) 0%, rgba(9, 13, 22, 0.95) 100%);
+      border: 1.5px solid rgba(255, 23, 68, 0.85);
+      box-shadow: 0 0 20px rgba(255, 23, 68, 0.45), inset 0 0 12px rgba(255, 23, 68, 0.15);
+      animation: imuWarningPulse 1.2s infinite alternate;
+    }
+    @keyframes imuWarningPulse {
+      0% { border-color: rgba(255, 23, 68, 0.6); box-shadow: 0 0 10px rgba(255, 23, 68, 0.3); }
+      100% { border-color: rgba(255, 23, 68, 1.0); box-shadow: 0 0 22px rgba(255, 23, 68, 0.65); }
+    }
+    .imu-warning-card.warning-critical .warning-icon {
+      color: var(--red);
+      font-size: 22px;
+      filter: drop-shadow(0 0 10px rgba(255, 23, 68, 0.9));
+      animation: imuIconShake 0.6s infinite ease-in-out;
+    }
+    @keyframes imuIconShake {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px) scale(1.12); }
+    }
+    .imu-warning-card.warning-critical .warning-title {
+      color: var(--red);
+      text-shadow: 0 0 10px rgba(255, 23, 68, 0.85);
+    }
+
+    .warning-content {
+      display: flex;
+      flex-direction: column;
+    }
+    .warning-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      line-height: 1.1;
+    }
+    .warning-desc {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 9.5px;
+      color: #e0f2fe;
+      margin-top: 2px;
+      line-height: 1.2;
+    }
+
+    /* Lower Row: 3-Axis Accelerometer Dynamic Progress Bars (Full Width) */
+    .imu-gauges-col-compact {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--card-border-dim);
+      border-radius: 6px;
+      padding: 5px 10px;
+    }
+    .imu-gauge-row {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5px;
+    }
+    .imu-gauge-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .imu-gauge-head .g-val {
+      font-family: 'Share Tech Mono', monospace;
+      font-weight: 700;
+      color: #fff;
+    }
+    .imu-bar-bg {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .imu-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan), #818cf8);
+      border-radius: 2px;
+      transition: width 0.2s;
+    }
+
+    /* RIGHT COLUMN: DEDICATED LOCATION & FLEET MAP PANEL */
+    .map-panel {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .map-panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .map-title-bar {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #ffffff;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* MAP CONTAINER */
+    .map-container {
+      flex: 1;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      background: #060e18;
+      border: 1px solid var(--card-border-dim);
+      min-height: 250px;
+    }
+    #live-google-map {
+      width: 100%;
+      height: 100%;
+      min-height: 275px;
+      background: #0b1523;
+    }
+    .leaflet-container {
+      font-family: 'Inter', sans-serif;
+      background: #0b1523;
+    }
+    .map-layer-toggles {
+      display: inline-flex;
+      background: rgba(11, 20, 35, 0.9);
+      border: 1px solid var(--card-border-dim);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .layer-btn {
+      padding: 2px 8px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .layer-btn.active {
+      background: #1a73e8;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(26, 115, 232, 0.6);
+    }
+    .layer-btn:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    /* Iconic Google Maps Navigation Marker */
+    .gmaps-marker-wrap {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      pointer-events: none;
+    }
+    .gmaps-beacon-pulse {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 40px;
+      height: 40px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: rgba(66, 133, 244, 0.25);
+      border: 1.5px solid rgba(66, 133, 244, 0.65);
+      animation: gmapsPulse 2.2s infinite ease-out;
+      pointer-events: none;
+    }
+    @keyframes gmapsPulse {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+    }
+    .gmaps-heading-cone {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      transform-origin: center center;
+      transition: transform 0.2s ease-out;
+      pointer-events: none;
+    }
+    .gmaps-heading-cone::after {
+      content: '';
+      position: absolute;
+      bottom: 6px;
+      left: -16px;
+      width: 32px;
+      height: 38px;
+      background: radial-gradient(ellipse at 50% 100%, rgba(66, 133, 244, 0.5) 0%, rgba(66, 133, 244, 0) 75%);
+      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    }
+    .gmaps-blue-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 18px;
+      height: 18px;
+      background: #1a73e8;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6), 0 0 10px rgba(66, 133, 244, 0.9);
+      z-index: 5;
+    }
+    .gmaps-vehicle-label {
+      position: absolute;
+      top: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      background: rgba(11, 20, 35, 0.95);
+      color: #00e5ff;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 229, 255, 0.5);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      pointer-events: none;
+    }
+    .map-footer-strip {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px 2px 8px;
+      font-size: 11px;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      color: var(--text-dim);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      margin-top: 4px;
+    }
+    .strip-label {
+      color: var(--text-dim);
+      margin-right: 4px;
+    }
+    .strip-val {
+      color: #fff;
+    }
+    .strip-val.val-green {
+      color: var(--green);
+    }
+    .strip-val.val-amber {
+      color: var(--yellow);
+    }
+
+    /* Floating telemetry card on map */
+    .map-hud-card {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(7, 17, 30, 0.92);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      backdrop-filter: blur(5px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+      font-size: 11px;
+      color: #e0f2fe;
+      line-height: 1.4;
+      z-index: 1000;
+    }
+    .map-hud-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+    .map-hud-live-tag {
+      font-size: 10px;
+      color: var(--green);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    /* Compass Rose in top right */
+    .map-compass {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      background: rgba(7, 17, 30, 0.85);
+      border: 1px solid var(--card-border-dim);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cyan);
+      z-index: 1000;
+      transition: transform 0.2s;
+    }
+
+    /* Zoom & Recenter controls */
+    .map-controls {
+      position: absolute;
+      right: 8px;
+      bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      z-index: 1000;
+    }
+    .map-ctrl-btn {
+      width: 28px;
+      height: 28px;
+      background: rgba(7, 17, 30, 0.88);
+      border: 1px solid var(--card-border-dim);
+      color: var(--cyan);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      transition: background 0.2s, color 0.2s;
+    }
+    .map-ctrl-btn:hover {
+      background: rgba(0, 229, 255, 0.25);
+      color: #fff;
+    }
+
+    /* ================= BOTTOM SECTION (VEHICLE STATUS - OBSTACLE ALERT - NAV INFO) ================= */
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 0.95fr 1.15fr 0.9fr;
+      gap: 10px;
+      min-height: 180px;
+    }
+
+    @media (max-width: 1100px) {
+      .bottom-row { grid-template-columns: 1fr; }
+    }
+
+    /* BOTTOM CARD 1: VEHICLE STATUS */
+    .status-panel {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    .status-head {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #ffffff;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .status-body {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    /* Gauge / Tachometer */
+    .gauge-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 155px;
+      height: 115px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .gauge-svg {
+      width: 100%;
+      height: 100%;
+    }
+    .gauge-center-val {
+      position: absolute;
+      top: 48%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .gauge-rpm-num {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+      text-shadow: 0 0 10px rgba(255,255,255,0.4);
+    }
+    .gauge-rpm-lbl {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    /* Vehicle Telemetry items on right */
+    .telemetry-items {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tele-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .tele-icon-box {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: rgba(0, 229, 255, 0.08);
+      border: 1px solid var(--card-border-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--cyan);
+      font-size: 15px;
+    }
+    .tele-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .tele-lbl {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+    .tele-val {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .tele-val.green {
+      color: var(--green);
+      text-shadow: 0 0 6px var(--green-glow);
+    }
+
+    /* BOTTOM CARD 2: OBSTACLE ALERT */
+    .alert-panel {
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at 50% 50%, rgba(255, 23, 68, 0.16) 0%, rgba(9, 13, 22, 0.95) 100%);
+      border: 1.5px solid rgba(255, 23, 68, 0.6);
+      box-shadow: 0 0 20px rgba(255, 23, 68, 0.25), inset 0 0 15px rgba(255, 23, 68, 0.08);
+      transition: all 0.3s;
+    }
+    .alert-panel.state-clear {
+      background: radial-gradient(circle at 50% 50%, rgba(0, 230, 118, 0.12) 0%, rgba(9, 13, 22, 0.95) 100%);
+      border: 1.5px solid rgba(0, 230, 118, 0.5);
+      box-shadow: 0 0 15px rgba(0, 230, 118, 0.2), inset 0 0 12px rgba(0, 230, 118, 0.05);
+    }
+    .alert-panel.state-clear .alert-head-left {
+      color: var(--green);
+      text-shadow: 0 0 8px rgba(0, 230, 118, 0.7);
+    }
+    .alert-panel.state-clear .alert-truck-icon-box {
+      filter: drop-shadow(0 0 8px rgba(0, 230, 118, 0.8));
+    }
+    .alert-panel.state-clear #alert-truck-svg path {
+      fill: var(--green);
+    }
+    .alert-panel.state-clear #alert-truck-svg circle {
+      stroke: var(--green);
+    }
+
+    .alert-panel.state-caution {
+      background: radial-gradient(circle at 50% 50%, rgba(255, 214, 0, 0.14) 0%, rgba(9, 13, 22, 0.95) 100%);
+      border: 1.5px solid rgba(255, 214, 0, 0.5);
+      box-shadow: 0 0 15px rgba(255, 214, 0, 0.2);
+    }
+    .alert-panel.state-caution .alert-head-left {
+      color: var(--yellow);
+      text-shadow: 0 0 8px rgba(255, 214, 0, 0.7);
+    }
+    .alert-panel.state-caution .alert-truck-icon-box {
+      filter: drop-shadow(0 0 8px rgba(255, 214, 0, 0.8));
+    }
+    .alert-panel.state-caution #alert-truck-svg path {
+      fill: var(--yellow);
+    }
+    .alert-panel.state-caution #alert-truck-svg circle {
+      stroke: var(--yellow);
+    }
+
+    .alert-panel.state-critical {
+      background: radial-gradient(circle at 50% 50%, rgba(255, 23, 68, 0.25) 0%, rgba(9, 13, 22, 0.95) 100%);
+      border: 1.8px solid rgba(255, 23, 68, 0.9);
+      box-shadow: 0 0 25px rgba(255, 23, 68, 0.4), inset 0 0 18px rgba(255, 23, 68, 0.15);
+      animation: alertPulseCritical 0.8s infinite alternate;
+    }
+    @keyframes alertPulseCritical {
+      from { border-color: rgba(255, 23, 68, 0.6); box-shadow: 0 0 15px rgba(255, 23, 68, 0.3); }
+      to { border-color: rgba(255, 23, 68, 1); box-shadow: 0 0 30px rgba(255, 23, 68, 0.6), inset 0 0 20px rgba(255, 23, 68, 0.2); }
+    }
+    .alert-panel.state-critical .alert-head-left {
+      color: var(--red);
+      text-shadow: 0 0 8px rgba(255, 23, 68, 0.8);
+    }
+    .alert-panel.state-critical .alert-truck-icon-box {
+      filter: drop-shadow(0 0 10px rgba(255, 23, 68, 0.9));
+    }
+    .alert-panel.state-critical #alert-truck-svg path {
+      fill: var(--red);
+    }
+    .alert-panel.state-critical #alert-truck-svg circle {
+      stroke: var(--red);
+    }
+
+    .alert-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .alert-head-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--red);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-shadow: 0 0 8px rgba(255, 23, 68, 0.7);
+    }
+    .badge-high-risk {
+      background: rgba(255, 23, 68, 0.2);
+      border: 1.5px solid var(--red);
+      color: var(--red);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      box-shadow: 0 0 8px rgba(255, 23, 68, 0.4);
+      animation: pulseRedBadge 1.2s infinite ease-in-out;
+    }
+    @keyframes pulseRedBadge {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(0.97); }
+    }
+
+    .alert-body {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 1;
+      padding: 4px 6px;
+    }
+    .alert-target-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .alert-truck-icon-box {
+      width: 62px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 0 8px rgba(255, 23, 68, 0.8));
+    }
+    .alert-text-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .alert-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+    }
+    .alert-dist {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+    .alert-dist span {
+      color: var(--red);
+      font-weight: 700;
+    }
+
+    /* Siren / Speaker Audio Visualizer */
+    .siren-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255, 23, 68, 0.15);
+      border: 1.5px solid var(--red);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--red);
+      box-shadow: 0 0 16px rgba(255, 23, 68, 0.5);
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+    .alert-panel.state-clear .siren-circle {
+      border-color: rgba(0, 230, 118, 0.6);
+      color: var(--green);
+      background: rgba(0, 230, 118, 0.1);
+      box-shadow: 0 0 12px rgba(0, 230, 118, 0.3);
+      animation: none;
+    }
+    .alert-panel.state-caution .siren-circle {
+      border-color: rgba(255, 214, 0, 0.7);
+      color: var(--yellow);
+      background: rgba(255, 214, 0, 0.15);
+      box-shadow: 0 0 14px rgba(255, 214, 0, 0.4);
+      animation: cautionPulse 1s infinite alternate;
+    }
+    @keyframes cautionPulse {
+      0% { transform: scale(0.97); }
+      100% { transform: scale(1.05); }
+    }
+    .alert-panel.state-critical .siren-circle {
+      border-color: var(--red);
+      color: var(--red);
+      background: rgba(255, 23, 68, 0.3);
+      box-shadow: 0 0 22px rgba(255, 23, 68, 0.8);
+      animation: criticalStrobe 0.45s infinite alternate;
+    }
+    @keyframes criticalStrobe {
+      0% { transform: scale(0.96); filter: brightness(1); }
+      100% { transform: scale(1.12); filter: brightness(1.5); }
+    }
+
+    /* BOTTOM CARD 3: NAVIGATION INFO */
+    .nav-panel {
+      padding: 12px 18px;
+      display: flex;
+      flex-direction: column;
+    }
+    .nav-head {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #ffffff;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .nav-table {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      justify-content: space-around;
+    }
+    .nav-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      padding-bottom: 4px;
+    }
+    .nav-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .nav-lbl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-dim);
+    }
+    .nav-icon {
+      color: var(--cyan);
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nav-val-group {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #f1f5f9;
+      text-align: right;
+    }
+
+    /* ================= SENSOR STATUS & HARDWARE DIAGNOSTICS BAR ================= */
+    .sensor-diag-drawer {
+      margin-top: 6px;
+      background: rgba(7, 17, 30, 0.92);
+      border: 1.5px solid var(--card-border-dim);
+      border-radius: 8px;
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5), inset 0 0 10px rgba(0, 229, 255, 0.04);
+      flex-wrap: wrap;
+    }
+    .diag-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .diag-badges-grid {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      flex: 1;
+      justify-content: flex-end;
+    }
+    .diag-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border-dim);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: 0.5px;
+      transition: all 0.25s;
+    }
+    .diag-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+    .diag-dot.yellow {
+      background: var(--yellow);
+      box-shadow: 0 0 6px var(--yellow);
+    }
+    .diag-dot.red {
+      background: var(--red);
+      box-shadow: 0 0 6px var(--red);
+    }
+    .diag-badge .sensor-tag {
+      color: var(--text-dim);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+    /* ================= LIGHT THEME COMPREHENSIVE STYLES ================= */
+    body.light-theme {
+      --bg-space: #f1f5f9;
+      --card-bg: #ffffff;
+      --card-bg-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      --card-border: #cbd5e1;
+      --card-border-dim: #e2e8f0;
+      --cyan: #0284c7;
+      --cyan-glow: rgba(2, 132, 199, 0.25);
+      --green: #16a34a;
+      --green-glow: rgba(22, 163, 74, 0.25);
+      --yellow: #d97706;
+      --yellow-glow: rgba(217, 119, 6, 0.25);
+      --red: #dc2626;
+      --red-glow: rgba(220, 38, 38, 0.25);
+      --blue: #2563eb;
+      --text: #0f172a;
+      --text-dim: #475569;
+      --text-muted: #94a3b8;
+      background-color: #f1f5f9;
+      background-image: 
+        radial-gradient(circle at 50% -20%, rgba(2, 132, 199, 0.08) 0%, transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(37, 99, 235, 0.04) 0%, transparent 50%);
+      color: #0f172a;
+    }
+
+    body.light-theme .card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    /* Header in Light Theme */
+    body.light-theme .brand-text h1 {
+      color: #0f172a;
+    }
+    body.light-theme .brand-text h1 span {
+      color: #0284c7;
+      text-shadow: none;
+    }
+    body.light-theme .mode-pill {
+      background: #f0fdf4;
+      border-color: #16a34a;
+      color: #16a34a;
+      box-shadow: 0 1px 4px rgba(22, 163, 74, 0.15);
+    }
+    body.light-theme .live-clock {
+      color: #334155;
+    }
+    body.light-theme .btn-icon-mode {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #0f172a;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    body.light-theme .btn-icon-mode:hover {
+      background: #f1f5f9;
+      color: #0284c7;
+    }
+    body.light-theme .badge-live {
+      background: #f0fdf4;
+      border-color: #16a34a;
+      color: #16a34a;
+      box-shadow: 0 1px 4px rgba(22, 163, 74, 0.15);
+    }
+
+    /* Camera Panel in Light Theme */
+    body.light-theme .cam-bottom-bar {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(2, 132, 199, 0.3);
+      color: #0f172a;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    body.light-theme .cam-action-btn {
+      color: #0284c7;
+      border-color: #cbd5e1;
+    }
+    body.light-theme .cam-action-btn:hover {
+      background: rgba(2, 132, 199, 0.1);
+    }
+
+    /* Ultrasonic Panel in Light Theme */
+    body.light-theme .sonic-compact-title {
+      color: #0f172a;
+    }
+    body.light-theme .sonic-radar-stage-compact {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+    }
+
+    /* 3D IMU Panel in Light Theme */
+    body.light-theme .imu-compact-title {
+      color: #0f172a;
+    }
+    body.light-theme .viewport-3d-big {
+      background: radial-gradient(circle at 50% 50%, #ffffff 0%, #f1f5f9 100%);
+      border: 1.5px solid #cbd5e1;
+      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0,0,0,0.06);
+    }
+    body.light-theme .imu-sim-badge {
+      background: rgba(255, 255, 255, 0.92);
+      color: #0f172a;
+      border: 1px solid #cbd5e1;
+    }
+    body.light-theme .imu-metric-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+    body.light-theme .imu-metric-box .metric-lbl {
+      color: #64748b;
+    }
+    body.light-theme .imu-metric-box .metric-val {
+      color: #0284c7;
+      text-shadow: none;
+    }
+    body.light-theme .imu-warning-card.warning-safe {
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.08);
+    }
+    body.light-theme .imu-warning-card.warning-safe .warning-title {
+      color: #15803d;
+      text-shadow: none;
+    }
+    body.light-theme .imu-warning-card.warning-safe .warning-desc {
+      color: #166534;
+    }
+    body.light-theme .imu-warning-card.warning-caution {
+      background: #fffbeb;
+      border: 1.5px solid #fde68a;
+      box-shadow: 0 2px 8px rgba(217, 119, 6, 0.08);
+    }
+    body.light-theme .imu-warning-card.warning-caution .warning-title {
+      color: #b45309;
+      text-shadow: none;
+    }
+    body.light-theme .imu-warning-card.warning-caution .warning-desc {
+      color: #92400e;
+    }
+    body.light-theme .imu-warning-card.warning-critical {
+      background: #fef2f2;
+      border: 1.5px solid #fca5a5;
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.12);
+    }
+    body.light-theme .imu-warning-card.warning-critical .warning-title {
+      color: #b91c1c;
+      text-shadow: none;
+    }
+    body.light-theme .imu-warning-card.warning-critical .warning-desc {
+      color: #991b1b;
+    }
+    body.light-theme .imu-gauges-col-compact {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+    body.light-theme .imu-gauge-head {
+      color: #64748b;
+    }
+    body.light-theme .imu-gauge-head .g-val {
+      color: #0f172a;
+    }
+    body.light-theme .imu-bar-bg {
+      background: #e2e8f0;
+    }
+
+    /* Map Panel in Light Theme */
+    body.light-theme .map-title-bar {
+      color: #0f172a;
+    }
+    body.light-theme .map-container {
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+    }
+    body.light-theme .map-layer-toggles {
+      background: #ffffff;
+      border-color: #cbd5e1;
+    }
+    body.light-theme .layer-btn {
+      color: #475569;
+    }
+    body.light-theme .layer-btn.active {
+      background: #0284c7;
+      color: #ffffff;
+      box-shadow: 0 1px 4px rgba(2, 132, 199, 0.3);
+    }
+    body.light-theme .layer-btn:hover:not(.active) {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    body.light-theme .map-hud-card {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #cbd5e1;
+      color: #0f172a;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+    }
+    body.light-theme .map-hud-title {
+      color: #0f172a;
+    }
+    body.light-theme #map-lat,
+    body.light-theme #map-lon {
+      color: #0f172a !important;
+    }
+    body.light-theme .map-compass {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #cbd5e1;
+      color: #0284c7;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    body.light-theme .map-ctrl-btn {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid #cbd5e1;
+      color: #0284c7;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    body.light-theme .map-ctrl-btn:hover {
+      background: #f1f5f9;
+      color: #0369a1;
+    }
+    body.light-theme .map-footer-strip {
+      color: #334155;
+    }
+    body.light-theme .strip-label {
+      color: #64748b;
+    }
+    body.light-theme .strip-val {
+      color: #0f172a;
+    }
+    body.light-theme .gmaps-vehicle-label {
+      background: rgba(255, 255, 255, 0.95);
+      color: #0284c7;
+      border-color: #cbd5e1;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    }
+
+    /* Vehicle Status Panel in Light Theme */
+    body.light-theme .status-head {
+      color: #0f172a;
+    }
+    body.light-theme .gauge-rpm-num {
+      color: #0f172a;
+      text-shadow: none;
+    }
+    body.light-theme .gauge-rpm-lbl {
+      color: #64748b;
+    }
+    body.light-theme .gauge-svg path:first-child {
+      stroke: #e2e8f0;
+    }
+    body.light-theme #gauge-needle {
+      stroke: #0f172a;
+    }
+    body.light-theme .tele-item {
+      background: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+    }
+    body.light-theme .tele-icon-box {
+      background: rgba(2, 132, 199, 0.08);
+      border-color: #cbd5e1;
+      color: #0284c7;
+    }
+    body.light-theme .tele-lbl {
+      color: #64748b;
+    }
+    body.light-theme #stat-speed {
+      color: #0f172a !important;
+    }
+
+    /* Obstacle Alert Panel in Light Theme */
+    body.light-theme .alert-panel.state-clear {
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      box-shadow: 0 4px 16px rgba(22, 163, 74, 0.08);
+    }
+    body.light-theme .alert-panel.state-clear .alert-head-left {
+      color: #15803d;
+      text-shadow: none;
+    }
+    body.light-theme .alert-panel.state-caution {
+      background: #fffbeb;
+      border: 1.5px solid #fde68a;
+      box-shadow: 0 4px 16px rgba(217, 119, 6, 0.08);
+    }
+    body.light-theme .alert-panel.state-caution .alert-head-left {
+      color: #b45309;
+      text-shadow: none;
+    }
+    body.light-theme .alert-panel.state-critical {
+      background: #fef2f2;
+      border: 1.5px solid #fca5a5;
+      box-shadow: 0 4px 16px rgba(220, 38, 38, 0.12);
+    }
+    body.light-theme .alert-panel.state-critical .alert-head-left {
+      color: #b91c1c;
+      text-shadow: none;
+    }
+    body.light-theme .alert-title {
+      color: #0f172a;
+    }
+    body.light-theme .alert-dist {
+      color: #475569;
+    }
+
+    /* Navigation Info Panel in Light Theme */
+    body.light-theme .nav-head {
+      color: #0f172a;
+    }
+    body.light-theme .nav-row {
+      border-bottom-color: #f1f5f9;
+    }
+    body.light-theme .nav-lbl-group {
+      color: #475569;
+    }
+    body.light-theme .nav-val-group {
+      color: #0f172a;
+    }
+    body.light-theme #nav-lat,
+    body.light-theme #nav-lon {
+      color: #0f172a !important;
+    }
+
+    /* Bottom Sensor Diagnostics Bar in Light Theme */
+    body.light-theme .sensor-diag-drawer {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    body.light-theme .diag-title-group {
+      color: #0284c7;
+    }
+    body.light-theme .diag-badge {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #0f172a;
+    }
+    body.light-theme .diag-badge .sensor-tag {
+      color: #64748b;
+    }
+
+    /* Tactical Night Vision HUD Overlay & Console */
+    .nvg-hud-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      z-index: 12;
+    }
+    .nvg-corner-bracket {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(0, 230, 118, 0.75);
+    }
+    .nvg-tl { top: 12px; left: 12px; border-right: none; border-bottom: none; }
+    .nvg-tr { top: 12px; right: 12px; border-left: none; border-bottom: none; }
+    .nvg-bl { bottom: 42px; left: 12px; border-right: none; border-top: none; }
+    .nvg-br { bottom: 42px; right: 12px; border-left: none; border-top: none; }
+
+    .nvg-tags-bar {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      pointer-events: none;
+    }
+    .nvg-tag {
+      background: rgba(4, 15, 25, 0.82);
+      border: 1px solid rgba(0, 230, 118, 0.5);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #00e676;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(4px);
+      letter-spacing: 0.5px;
+      font-family: 'Share Tech Mono', monospace;
+    }
+    .nvg-tag.ir-tag {
+      border-color: rgba(255, 23, 68, 0.55);
+      color: #ff5252;
+    }
+    .nvg-tag.lux-tag {
+      border-color: rgba(0, 229, 255, 0.55);
+      color: #00e5ff;
+    }
+
+    .nvg-control-deck {
+      margin-top: 8px;
+      background: rgba(7, 18, 30, 0.9);
+      border: 1px solid rgba(0, 230, 118, 0.3);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .nvg-deck-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+    .nvg-deck-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      color: #00e676;
+      letter-spacing: 0.6px;
+      font-family: 'Rajdhani', sans-serif;
+    }
+    .nvg-deck-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .nvg-modes-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .nvg-mode-btn {
+      flex: 1;
+      min-width: 90px;
+      background: rgba(14, 28, 44, 0.9);
+      border: 1px solid var(--card-border-dim);
+      border-radius: 5px;
+      color: var(--text-dim);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 6px 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 0.4px;
+      text-align: center;
+      font-family: 'Rajdhani', sans-serif;
+    }
+    .nvg-mode-btn:hover {
+      background: rgba(0, 230, 118, 0.15);
+      border-color: rgba(0, 230, 118, 0.5);
+      color: #ffffff;
+    }
+    .nvg-mode-btn.active {
+      background: rgba(0, 230, 118, 0.2);
+      border-color: #00e676;
+      color: #00e676;
+      box-shadow: 0 0 10px rgba(0, 230, 118, 0.3);
+    }
+    .nvg-deck-controls-row {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+    @media (max-width: 900px) {
+      .nvg-deck-controls-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    .nvg-meter-box, .nvg-slider-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nvg-slider-lbl {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      font-family: 'Rajdhani', sans-serif;
+    }
+    .nvg-meter-track {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .nvg-meter-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ff1744, #00e5ff);
+      transition: width 0.3s ease;
+    }
+    .nvg-slider-box input[type="range"] {
+      width: 100%;
+      height: 6px;
+      accent-color: #00e676;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================= TOP HEADER BAR ================= -->
+  <div class="header">
+    <div class="brand-section">
+      <div class="brand-text">
+        <h1>MINE <span>VISION X</span></h1>
+      </div>
+    </div>
+
+    <!-- Center Badge -->
+    <div class="mode-pill">DRIVER INTERFACE</div>
+
+    <!-- Right Section -->
+    <div class="header-right">
+      <div id="clock-display" class="live-clock">2026-09-27 14:28:36</div>
+      <button class="btn-icon-mode" title="Toggle HUD Theme" onclick="toggleTheme()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </button>
+      <div class="badge-live">
+        <div class="dot-pulse"></div> LIVE
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN DASHBOARD BODY ================= -->
+  <div class="dashboard-grid">
+
+    <!-- TOP ROW (Camera, Ultrasonic, 3D IMU & Map) -->
+    <div class="top-row">
+
+      <!-- 1. LIVE CAMERA FEED (STREAMING FROM SERVER / HARDWARE) -->
+      <div class="card cam-panel">
+        <div class="cam-viewport">
+          <!-- Live MJPEG Stream from /video_feed -->
+          <img id="cam-feed" class="cam-img" src="/video_feed" alt="Mine Vision-X Live FPV" />
+
+          <!-- Dynamic Real-Time AI Bounding Boxes (Synchronized with Ultrasonic Port D2 Telemetry!) -->
+          <div id="ai-overlay" class="ai-boxes-overlay">
+            <!-- Dynamic Obstacle Ahead (Appears & scales ONLY when ultrasonic sensor detects forward hazard) -->
+            <div id="bbox-obstacle" class="bbox-dynamic-obstacle" style="display:none; top:25%; left:34%; width:32%; height:48%;">
+              <div id="bbox-obstacle-tag" class="bbox-tag-red">OBSTACLE DETECTED</div>
+            </div>
+          </div>
+
+          <!-- Tactical Night Vision HUD Overlay -->
+          <div id="nvg-hud-overlay" class="nvg-hud-overlay">
+            <div class="nvg-corner-bracket nvg-tl"></div>
+            <div class="nvg-corner-bracket nvg-tr"></div>
+            <div class="nvg-corner-bracket nvg-bl"></div>
+            <div class="nvg-corner-bracket nvg-br"></div>
+            
+            <!-- Live NVG Telemetry Strip -->
+            <div class="nvg-tags-bar">
+              <div id="nvg-badge-mode" class="nvg-tag">
+                <span id="nvg-pulse-dot" class="dot-pulse" style="background:#00e676;"></span>
+                <span id="nvg-txt-mode">NVG: AUTO (PVS-14)</span>
+              </div>
+              <div id="nvg-badge-ir" class="nvg-tag ir-tag">
+                <span id="ir-pulse-dot" class="dot-pulse" style="background:#ff1744;"></span>
+                <span id="nvg-txt-ir">3W IR 850nm: ACTIVE</span>
+              </div>
+              <div id="nvg-badge-lux" class="nvg-tag lux-tag">
+                <span id="nvg-txt-lux">DARK: 94% (LUX 6%)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom HUD Overlay inside Camera -->
+          <div class="cam-bottom-bar">
+            <div class="cam-info-left">
+              <span class="cam-icon">&#x1F4F7;</span>
+              <span id="cam-mode-label">CAMERA - FRONT (VISIBLE + THERMAL FUSED)</span>
+            </div>
+            <div class="cam-actions">
+              <button id="btn-nvg-quick" class="cam-action-btn" title="Cycle Night Vision (Off / Auto / Mono / Green / Thermal)" onclick="cycleNightVision()">
+                <span id="btn-nvg-txt" style="color:#00e676; font-weight:700;">🌙 NVG: AUTO</span>
+              </button>
+              <button class="cam-action-btn" title="Toggle Tactical Reticle" onclick="toggleTacticalReticle()">
+                <span id="btn-reticle-txt" style="color:var(--cyan);">[🎯 RETICLE]</span>
+              </button>
+              <button class="cam-action-btn" title="Toggle Fog-Safe Mode" onclick="toggleFogMode()">
+                <span id="btn-fog-txt" style="color:var(--yellow);">[FOG-SAFE]</span>
+              </button>
+              <button class="cam-action-btn" title="Expand View" onclick="toggleFullScreen()">&#x26F6;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DEDICATED NIGHT VISION & 3W IR ILLUMINATOR TACTICAL CONSOLE -->
+        <div class="nvg-control-deck">
+          <div class="nvg-deck-header">
+            <div class="nvg-deck-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2.2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+              <span>NIGHT VISION & 3W IR ILLUMINATOR (850nm)</span>
+            </div>
+            <div class="nvg-deck-status">
+              <span class="strip-label">IR BEAM:</span>
+              <span id="deck-ir-status" class="strip-val" style="color:var(--green); font-weight:700;">850nm FLOOD ON</span>
+            </div>
+          </div>
+
+          <!-- Mode Buttons -->
+          <div class="nvg-modes-group">
+            <button id="nvg-btn-off" class="nvg-mode-btn" onclick="setNightVisionMode('off')">OPTICAL (OFF)</button>
+            <button id="nvg-btn-auto" class="nvg-mode-btn active" onclick="setNightVisionMode('auto')">AUTO (LUX TRIGGER)</button>
+            <button id="nvg-btn-mono" class="nvg-mode-btn" onclick="setNightVisionMode('mono')">IR MONO B&W</button>
+            <button id="nvg-btn-green" class="nvg-mode-btn" onclick="setNightVisionMode('green')">NVG GREEN (PVS-14)</button>
+            <button id="nvg-btn-thermal" class="nvg-mode-btn" onclick="setNightVisionMode('thermal')">FLIR THERMAL</button>
+          </div>
+
+          <!-- Live Darkness Meter & Dynamic Sliders -->
+          <div class="nvg-deck-controls-row">
+            <!-- Darkness Meter -->
+            <div class="nvg-meter-box">
+              <div class="nvg-slider-lbl">
+                <span>SCENE DARKNESS (LUX)</span>
+                <span id="deck-darkness-txt" style="color:var(--cyan); font-weight:700;">94.4% (LUX: 5.6%)</span>
+              </div>
+              <div class="nvg-meter-track">
+                <div id="deck-darkness-bar" class="nvg-meter-fill" style="width: 94.4%;"></div>
+              </div>
+            </div>
+
+            <!-- Gain Slider -->
+            <div class="nvg-slider-box">
+              <div class="nvg-slider-lbl">
+                <span>EXPOSURE GAIN</span>
+                <span id="deck-gain-txt" style="color:var(--green); font-weight:700;">1.6x</span>
+              </div>
+              <input type="range" id="deck-gain-slider" min="1.0" max="3.0" step="0.1" value="1.6" onchange="onGainChange(this.value)" />
+            </div>
+
+            <!-- Contrast Slider -->
+            <div class="nvg-slider-box">
+              <div class="nvg-slider-lbl">
+                <span>DYNAMIC RANGE</span>
+                <span id="deck-contrast-txt" style="color:var(--yellow); font-weight:700;">1.3x</span>
+              </div>
+              <input type="range" id="deck-contrast-slider" min="1.0" max="2.5" step="0.1" value="1.3" onchange="onContrastChange(this.value)" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. MIDDLE COLUMN: COMPACT ULTRASONIC SENSOR + 3D IMU SENSOR -->
+      <div class="middle-col">
+
+        <!-- 2A. COMPACT ULTRASONIC SENSOR RADAR (GROVEPI PORT D2) -->
+        <div class="card sonic-compact-panel">
+          <div class="sonic-compact-header">
+            <div class="sonic-compact-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12h2M6 8h2M6 16h2M10 4h2M10 20h2M14 8h2M14 16h2M18 12h2"/></svg>
+              <span>ULTRASONIC (PORT D2)</span>
+            </div>
+            <div id="sonic-front-val" class="sonic-compact-val">
+              <span id="val-front-dist">25.0</span> <span style="font-size:11px; color:var(--text-dim); font-weight:500;">cm</span> <span id="val-front-icon" style="font-size: 14px;">⚠️</span>
+            </div>
+          </div>
+
+          <div class="sonic-radar-stage-compact">
+            <!-- Dynamic SVG Radar Arcs (Colors & Pulse adapt to sensor reading!) -->
+            <svg class="radar-arcs-svg-compact" viewBox="0 0 280 120" fill="none">
+              <!-- FRONT RADAR ARCS (Active Telemetry from Port D2) -->
+              <g id="arcs-front" class="arc-active-pulse">
+                <path id="front-arc-1" d="M126 27 Q140 18 154 27" stroke="#ff1744" stroke-width="3" stroke-linecap="round"/>
+                <path id="front-arc-2" d="M116 18 Q140 7 164 18" stroke="#ff1744" stroke-width="3.5" stroke-linecap="round"/>
+                <path id="front-arc-3" d="M106 9 Q140 -3 174 9" stroke="#ff1744" stroke-width="4" stroke-linecap="round"/>
+              </g>
+
+              <!-- TOP-DOWN MINING DUMPER TRUCK ICON -->
+              <g id="radar-compact-truck">
+                <!-- Heavy Duty Axles -->
+                <line x1="112" y1="48" x2="168" y2="48" stroke="#00e5ff" stroke-width="2.5" stroke-opacity="0.35" stroke-linecap="round"/>
+                <line x1="108" y1="78" x2="172" y2="78" stroke="#00e5ff" stroke-width="2.8" stroke-opacity="0.35" stroke-linecap="round"/>
+
+                <!-- 6 Heavy Mining Tires (Front Steer + Rear Tandem Duals) -->
+                <!-- Front Left Tire -->
+                <rect x="111" y="40" width="8" height="16" rx="2" fill="#08111d" stroke="#00e5ff" stroke-width="1.4"/>
+                <line x1="111" y1="44" x2="119" y2="44" stroke="#00e5ff" stroke-width="1" stroke-opacity="0.6"/>
+                <line x1="111" y1="48" x2="119" y2="48" stroke="#00e5ff" stroke-width="1" stroke-opacity="0.6"/>
+                <line x1="111" y1="52" x2="119" y2="52" stroke="#00e5ff" stroke-width="1" stroke-opacity="0.6"/>
+
+                <!-- Front Right Tire -->
+                <rect x="161" y="40" width="8" height="16" rx="2" fill="#08111d" stroke="#00e5ff" stroke-width="1.4"/>
+                <line x1="161" y1="44" x2="169" y2="44" stroke="#00e5ff" stroke-width="1" stroke-opacity="0.6"/>
+                <line x1="161" y1="48" x2="169" y2="48" stroke="#00e5ff" stroke-width="1" stroke-opacity="0.6"/>
+                <line x1="161" y1="52" x2="169" y2="52" stroke="#00e5ff" stroke-width="1" stroke-opacity="0.6"/>
+
+                <!-- Rear Left Dual Tires -->
+                <rect x="107" y="69" width="7" height="19" rx="2" fill="#08111d" stroke="#00e5ff" stroke-width="1.4"/>
+                <rect x="115" y="69" width="7" height="19" rx="2" fill="#08111d" stroke="#00e5ff" stroke-width="1.4"/>
+                <line x1="107" y1="73.5" x2="122" y2="73.5" stroke="#00e5ff" stroke-width="0.9" stroke-opacity="0.5"/>
+                <line x1="107" y1="78.5" x2="122" y2="78.5" stroke="#00e5ff" stroke-width="0.9" stroke-opacity="0.5"/>
+                <line x1="107" y1="83.5" x2="122" y2="83.5" stroke="#00e5ff" stroke-width="0.9" stroke-opacity="0.5"/>
+
+                <!-- Rear Right Dual Tires -->
+                <rect x="158" y="69" width="7" height="19" rx="2" fill="#08111d" stroke="#00e5ff" stroke-width="1.4"/>
+                <rect x="166" y="69" width="7" height="19" rx="2" fill="#08111d" stroke="#00e5ff" stroke-width="1.4"/>
+                <line x1="158" y1="73.5" x2="173" y2="73.5" stroke="#00e5ff" stroke-width="0.9" stroke-opacity="0.5"/>
+                <line x1="158" y1="78.5" x2="173" y2="78.5" stroke="#00e5ff" stroke-width="0.9" stroke-opacity="0.5"/>
+                <line x1="158" y1="83.5" x2="173" y2="83.5" stroke="#00e5ff" stroke-width="0.9" stroke-opacity="0.5"/>
+
+                <!-- Main Chassis Frame Underbody -->
+                <rect x="124" y="38" width="32" height="58" rx="2.5" fill="#0d1b2a" stroke="#00e5ff" stroke-width="1.5"/>
+
+                <!-- Front Radiator Grill & Bumper Bar -->
+                <rect x="125" y="36" width="30" height="5" rx="1.5" fill="#091526" stroke="#00e5ff" stroke-width="1.2"/>
+                <line x1="128" y1="38.5" x2="152" y2="38.5" stroke="#00e5ff" stroke-width="1" stroke-dasharray="2 1.5"/>
+
+                <!-- Ultrasonic Sensor Ping Node (Port D2) -->
+                <circle cx="140" cy="35" r="2.2" fill="#00e5ff"/>
+                <circle cx="140" cy="35" r="4.2" stroke="#00e5ff" stroke-width="0.8" stroke-dasharray="1.5 1.5"/>
+
+                <!-- Operator Cab Deck (Front Left Cab) -->
+                <rect x="126" y="42" width="12" height="11" rx="1.5" fill="#002b3d" stroke="#00e5ff" stroke-width="1.3"/>
+                <!-- Cab Windshield & Windows -->
+                <polygon points="127,43 137,43 136,47 127,47" fill="#00e5ff" fill-opacity="0.6"/>
+                <rect x="127" y="48.5" width="4" height="3" fill="#00e5ff" fill-opacity="0.4"/>
+
+                <!-- Front Right Deck Platform & Air Exhaust -->
+                <line x1="140" y1="44" x2="153" y2="44" stroke="#00e5ff" stroke-width="1" stroke-dasharray="1.5 1.5" stroke-opacity="0.7"/>
+                <line x1="140" y1="47" x2="153" y2="47" stroke="#00e5ff" stroke-width="1" stroke-dasharray="1.5 1.5" stroke-opacity="0.7"/>
+                <line x1="140" y1="50" x2="153" y2="50" stroke="#00e5ff" stroke-width="1" stroke-dasharray="1.5 1.5" stroke-opacity="0.7"/>
+                <circle cx="150" cy="48" r="2.2" fill="#091526" stroke="#00e5ff" stroke-width="1.2"/>
+
+                <!-- Rock Protection Canopy (Visor overhang extending forward above deck) -->
+                <polygon points="121,53 140,44 159,53" fill="#00374d" stroke="#00e5ff" stroke-width="1.5" stroke-linejoin="round"/>
+
+                <!-- Dump Bed Hopper Body (Tapered Haul Bed with Spillway Chute) -->
+                <polygon points="120,53 160,53 162,91 157,98 123,98 118,91" fill="#091526" stroke="#00e5ff" stroke-width="1.8" stroke-linejoin="round"/>
+
+                <!-- Dump Bed Inner Cargo Cavity -->
+                <polygon points="123,56 157,56 159,89 155,95 125,95 121,89" fill="#050e18" stroke="#00e5ff" stroke-width="1.2" stroke-opacity="0.6"/>
+
+                <!-- Structural Reinforcement Ribs -->
+                <line x1="122" y1="62" x2="158" y2="62" stroke="#00e5ff" stroke-width="1.5" stroke-opacity="0.85"/>
+                <line x1="121" y1="70" x2="159" y2="70" stroke="#00e5ff" stroke-width="1.5" stroke-opacity="0.85"/>
+                <line x1="121" y1="78" x2="159" y2="78" stroke="#00e5ff" stroke-width="1.5" stroke-opacity="0.85"/>
+                <line x1="121" y1="86" x2="159" y2="86" stroke="#00e5ff" stroke-width="1.5" stroke-opacity="0.85"/>
+
+                <!-- Hydraulic Hoist Ram Center Pin -->
+                <circle cx="140" cy="74" r="2.2" fill="#00e5ff" fill-opacity="0.9"/>
+                <line x1="140" y1="58" x2="140" y2="92" stroke="#00e5ff" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.4"/>
+
+                <!-- Tailgate Lip -->
+                <line x1="125" y1="95.5" x2="155" y2="95.5" stroke="#00e5ff" stroke-width="1.6"/>
+              </g>
+          </div>
+        </div>
+
+        <!-- 2B. COMPACT 3D IMU SENSOR (MMA7660) -->
+        <div class="card imu-compact-panel">
+          <div class="imu-compact-header">
+            <div class="imu-compact-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+              <span>3D IMU SENSOR (MMA7660)</span>
+            </div>
+          </div>
+
+          <!-- Upper Section: Left (Big 3D Simulation) | Right (Pitch/Roll + Big Warning) -->
+          <div class="imu-main-grid">
+            <!-- LEFT: Big 3D Dumper Simulation Viewport -->
+            <div class="imu-sim-col">
+              <div id="imu-3d-viewport" class="viewport-3d-big" title="3D Dumper Model - Click & Drag to Orbit">
+                <canvas id="imu-3d-canvas"></canvas>
+                <div class="imu-sim-badge">3D DUMPER (MMA7660)</div>
+              </div>
+            </div>
+
+            <!-- RIGHT: Pitch & Roll at Top + Big Warning Box Below -->
+            <div class="imu-metrics-col">
+              <!-- Top Row: Pitch & Roll Boxes -->
+              <div class="imu-angles-row">
+                <div class="imu-metric-box">
+                  <div class="metric-lbl">PITCH (SLOPE)</div>
+                  <div id="deg-pitch" class="metric-val">+0.0&deg;</div>
+                </div>
+                <div class="imu-metric-box">
+                  <div class="metric-lbl">ROLL (BANK)</div>
+                  <div id="deg-roll" class="metric-val">+0.0&deg;</div>
+                </div>
+              </div>
+
+              <!-- Dedicated Big Warning Box -->
+              <div id="imu-warning-box" class="imu-warning-card warning-safe">
+                <div id="imu-warning-icon" class="warning-icon">✔</div>
+                <div class="warning-content">
+                  <div id="imu-warning-title" class="warning-title">ATTITUDE STABLE</div>
+                  <div id="imu-warning-desc" class="warning-desc">SAFE GRADE &bull; STABILITY NORMAL</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lower Row: 3-Axis Accelerometer Dynamic Progress Bars -->
+          <div class="imu-gauges-col-compact">
+            <div class="imu-gauge-row">
+              <div class="imu-gauge-head">
+                <span>ACCEL X (Lateral G)</span>
+                <span id="txt-ax" class="g-val">+0.00 g</span>
+              </div>
+              <div class="imu-bar-bg"><div id="bar-ax" class="imu-bar-fill" style="width: 50%;"></div></div>
+            </div>
+            <div class="imu-gauge-row">
+              <div class="imu-gauge-head">
+                <span>ACCEL Y (Longitudinal G)</span>
+                <span id="txt-ay" class="g-val">+0.00 g</span>
+              </div>
+              <div class="imu-bar-bg"><div id="bar-ay" class="imu-bar-fill" style="width: 50%;"></div></div>
+            </div>
+            <div class="imu-gauge-row">
+              <div class="imu-gauge-head">
+                <span>ACCEL Z (Gravity Normal G)</span>
+                <span id="txt-az" class="g-val">+0.98 g</span>
+              </div>
+              <div class="imu-bar-bg"><div id="bar-az" class="imu-bar-fill" style="width: 70%; background: linear-gradient(90deg, var(--green), var(--cyan));"></div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 3. RIGHT COLUMN: DEDICATED LOCATION & FLEET MAP -->
+      <div class="card map-panel">
+        <div class="map-panel-head">
+          <div class="map-title-bar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4285f4" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+            <span>LIVE GNSS LOCATION MAP</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="map-layer-toggles">
+              <button id="btn-layer-road" class="layer-btn active" onclick="setMapLayer('road')">MAP</button>
+              <button id="btn-layer-sat" class="layer-btn" onclick="setMapLayer('satellite')">SATELLITE</button>
+            </div>
+            <div class="badge-live" style="padding: 2px 10px; font-size: 11px;">
+              <div class="dot-pulse"></div> LIVE
+            </div>
+          </div>
+        </div>
+
+        <div class="map-container" style="flex: 1; height: 100%; min-height: 275px; position: relative;">
+          <!-- Live Google Maps Leaflet Container -->
+          <div id="live-google-map"></div>
+
+          <!-- Compass Rose -->
+          <div id="map-compass" class="map-compass" title="Heading">N</div>
+
+          <!-- Map Controls -->
+          <div class="map-controls">
+            <button class="map-ctrl-btn" onclick="zoomMap(1)" title="Zoom In">+</button>
+            <button class="map-ctrl-btn" onclick="zoomMap(-1)" title="Zoom Out">&minus;</button>
+            <button class="map-ctrl-btn" onclick="recenterMap()" title="Recenter to Current Location" style="font-size: 16px;">&#x2316;</button>
+          </div>
+        </div>
+
+        <!-- Real Hardware GNSS Telemetry Strip -->
+        <div class="map-footer-strip">
+          <div><span class="strip-label">RECEIVER:</span> <span class="strip-val val-green">U-BLOX NEO-M9N</span></div>
+          <div><span class="strip-label">INTERFACE:</span> <span class="strip-val">I2C (0x42)</span></div>
+          <div><span class="strip-label">DATUM:</span> <span class="strip-val">WGS-84</span></div>
+          <div><span class="strip-label">STATUS:</span> <span id="map-fix-status" class="strip-val" style="color:#f59e0b;">SEARCHING (0 SATS - INDOOR)</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- BOTTOM ROW (Vehicle Status, Obstacle Alert, Navigation Info) -->
+    <div class="bottom-row">
+
+      <!-- 1. VEHICLE STATUS (ARDUINO ENCODER & MOTOR DRIVE) -->
+      <div class="card status-panel">
+        <div class="status-head">VEHICLE STATUS</div>
+        <div class="status-body">
+
+          <!-- Circular Speedometer / Tachometer Gauge -->
+          <div class="gauge-wrapper">
+            <svg class="gauge-svg" viewBox="0 0 160 120">
+              <!-- Background Outer Arc -->
+              <path d="M 20 100 A 60 60 0 1 1 140 100" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="12" stroke-linecap="round"/>
+              <!-- Green Segment (0 - 30 RPM) -->
+              <path d="M 20 100 A 60 60 0 0 1 80 40" fill="none" stroke="#00e676" stroke-width="10" stroke-linecap="round"/>
+              <!-- Yellow Segment (30 - 45 RPM) -->
+              <path d="M 80 40 A 60 60 0 0 1 122 58" fill="none" stroke="#ffd600" stroke-width="10"/>
+              <!-- Red Segment (45 - 60 RPM) -->
+              <path d="M 122 58 A 60 60 0 0 1 140 100" fill="none" stroke="#ff1744" stroke-width="10" stroke-linecap="round"/>
+              <!-- Dynamic Needle / Pointer -->
+              <line id="gauge-needle" x1="80" y1="100" x2="80" y2="46" stroke="#ffffff" stroke-width="3" stroke-linecap="round" transform="rotate(-15 80 100)"/>
+              <circle cx="80" cy="100" r="6" fill="#00e5ff" stroke="#ffffff" stroke-width="2"/>
+              <!-- Min and Max Labels -->
+              <text x="18" y="116" font-family="'Rajdhani', sans-serif" font-size="12" font-weight="700" fill="#90a4ae">0</text>
+              <text x="132" y="116" font-family="'Rajdhani', sans-serif" font-size="12" font-weight="700" fill="#90a4ae">60</text>
+            </svg>
+            <div class="gauge-center-val">
+              <div id="stat-rpm" class="gauge-rpm-num">0</div>
+              <div class="gauge-rpm-lbl">RPM</div>
+            </div>
+          </div>
+
+          <!-- Right Telemetry Readouts -->
+          <div class="telemetry-items" style="justify-content: center;">
+            <!-- Speed -->
+            <div class="tele-item" style="background: rgba(0, 229, 255, 0.05); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--card-border-dim);">
+              <div class="tele-icon-box" style="width: 38px; height: 38px; font-size: 18px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 14l4-4"/>
+                  <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+                </svg>
+              </div>
+              <div class="tele-info">
+                <span class="tele-lbl" style="font-size: 11px; letter-spacing: 0.8px; font-weight: 600;">Speed</span>
+                <span id="stat-speed" class="tele-val" style="font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: 0.5px;">0.0 km/h</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 2. OBSTACLE ALERT (REACTIVE TO SENSOR THRESHOLD) -->
+      <div id="alert-card" class="card alert-panel">
+        <div class="alert-head">
+          <div class="alert-head-left">
+            <span id="alert-icon-symbol" style="font-size: 20px;">&#x26A0;&#xFE0F;</span>
+            <span id="alert-title-main">OBSTACLE ALERT</span>
+          </div>
+          <div id="alert-risk-badge" class="badge-high-risk">HIGH RISK</div>
+        </div>
+
+        <div class="alert-body">
+          <div class="alert-target-group">
+            <!-- Dump Truck Silhouette Icon -->
+            <div class="alert-truck-icon-box">
+              <svg id="alert-truck-svg" width="54" height="42" viewBox="0 0 64 48" fill="none">
+                <path d="M4 14 H38 V36 H4 Z" fill="#ff1744"/>
+                <path d="M38 20 H52 L60 28 V36 H38 Z" fill="#ff1744"/>
+                <rect x="42" y="22" width="10" height="7" rx="1" fill="#091526"/>
+                <circle cx="14" cy="38" r="6" fill="#091526" stroke="#ff1744" stroke-width="3"/>
+                <circle cx="28" cy="38" r="6" fill="#091526" stroke="#ff1744" stroke-width="3"/>
+                <circle cx="50" cy="38" r="6" fill="#091526" stroke="#ff1744" stroke-width="3"/>
+              </svg>
+            </div>
+            <div class="alert-text-group">
+              <div id="alert-desc" class="alert-title">Dump Truck Ahead</div>
+              <div class="alert-dist">Distance: <span id="alert-distance-val">25.0 cm</span></div>
+            </div>
+          </div>
+
+          <!-- Animated Audio Siren Alarm -->
+          <div class="siren-circle" title="Sound Alert Buzzer (Click to Mute/Test)" onclick="toggleAudioAlert()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. NAVIGATION INFO (LIVE GNSS SENSOR DATA & SLOPE) -->
+      <div class="card nav-panel">
+        <div class="nav-head">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          NAVIGATION INFO
+        </div>
+
+        <div class="nav-table">
+          <!-- Row 1: Current Location -->
+          <div class="nav-row">
+            <div class="nav-lbl-group">
+              <div class="nav-icon">&#x1F4CD;</div>
+              <span>Current Location</span>
+            </div>
+            <div class="nav-val-group">
+              <div style="font-family:'Share Tech Mono', monospace; font-weight:700; color:var(--cyan); font-size:12px;">Lat: <span id="nav-lat" style="color:var(--text);">13.188447&deg; N</span></div>
+              <div style="font-family:'Share Tech Mono', monospace; font-weight:700; color:var(--cyan); font-size:12px;">Lon: <span id="nav-lon" style="color:var(--text);">80.106112&deg; E</span></div>
+              <div id="nav-loc-type" style="font-size:10px; color:#f59e0b; margin-top:2px; font-weight:600;">Vel Tech High Tech (Avadi)</div>
+            </div>
+          </div>
+
+          <!-- Row 2: Speed (GPS) -->
+          <div class="nav-row">
+            <div class="nav-lbl-group">
+              <div class="nav-icon">&#x23F1;</div>
+              <span>Speed</span>
+            </div>
+            <div class="nav-val-group" id="nav-speed">0.0 km/h</div>
+          </div>
+
+          <!-- Row 3: Heading & Slope (IMU) -->
+          <div class="nav-row">
+            <div class="nav-lbl-group">
+              <div class="nav-icon">&#x2388;</div>
+              <span>Heading &bull; Slope</span>
+            </div>
+            <div class="nav-val-group" id="nav-heading">148&deg; SE &bull; P: +0.0&deg;</div>
+          </div>
+
+          <!-- Row 4: Altitude -->
+          <div class="nav-row">
+            <div class="nav-lbl-group">
+              <div class="nav-icon">&#x26F0;</div>
+              <span>Altitude</span>
+            </div>
+            <div class="nav-val-group" id="nav-alt">16 m</div>
+          </div>
+
+          <!-- Row 5: GPS Status -->
+          <div class="nav-row">
+            <div class="nav-lbl-group">
+              <div class="nav-icon">&#x1F6F0;</div>
+              <span>GNSS Satellites</span>
+            </div>
+            <div class="nav-val-group" id="nav-sats" style="color:#f59e0b;">0 Satellites (Searching Indoors)</div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SENSORS STATUS & HARDWARE HEALTH DIAGNOSTIC BAR -->
+    <div class="sensor-diag-drawer">
+      <div class="diag-title-group">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        <span>SENSORS STATUS:</span>
+      </div>
+
+      <div class="diag-badges-grid">
+        <!-- 1. CAM SENSOR -->
+        <div id="badge-diag-cam" class="diag-badge">
+          <div id="dot-diag-cam" class="diag-dot"></div>
+          <span class="sensor-tag">CAM (OV5647):</span>
+          <span id="txt-diag-cam" class="status-val">ACTIVE (25 FPS)</span>
+        </div>
+
+        <!-- 2. ULTRASONIC SENSOR (PORT D2) -->
+        <div id="badge-diag-sonic" class="diag-badge">
+          <div id="dot-diag-sonic" class="diag-dot"></div>
+          <span class="sensor-tag">ULTRASONIC (D2):</span>
+          <span id="txt-diag-sonic" class="status-val">ACTIVE (52 cm)</span>
+        </div>
+
+        <!-- 3. IMU SENSOR (MMA7660) -->
+        <div id="badge-diag-imu" class="diag-badge">
+          <div id="dot-diag-imu" class="diag-dot"></div>
+          <span class="sensor-tag">IMU (MMA7660):</span>
+          <span id="txt-diag-imu" class="status-val">ACTIVE (0x4C)</span>
+        </div>
+
+        <!-- 4. GNSS GPS (NEO-M9N) -->
+        <div id="badge-diag-gps" class="diag-badge">
+          <div id="dot-diag-gps" class="diag-dot yellow"></div>
+          <span class="sensor-tag">GNSS (NEO-M9N):</span>
+          <span id="txt-diag-gps" class="status-val" style="color:var(--yellow);">ACQUIRING...</span>
+        </div>
+
+        <!-- 5. ARDUINO CONTROLLER -->
+        <div id="badge-diag-ard" class="diag-badge">
+          <div id="dot-diag-ard" class="diag-dot"></div>
+          <span class="sensor-tag">ARDUINO (UNO):</span>
+          <span id="txt-diag-ard" class="status-val">LINKED (/dev/ttyUSB0)</span>
+        </div>
+
+        <!-- 6. BLUETOOTH HC-05 -->
+        <div id="badge-diag-ble" class="diag-badge">
+          <div id="dot-diag-ble" class="diag-dot"></div>
+          <span class="sensor-tag">BT (HC-05):</span>
+          <span id="txt-diag-ble" class="status-val">PAIRED (ACTIVE)</span>
+        </div>
+
+        <!-- 7. 3W IR ILLUMINATOR (850nm) -->
+        <div id="badge-diag-ir" class="diag-badge">
+          <div id="dot-diag-ir" class="diag-dot green"></div>
+          <span class="sensor-tag">3W IR (850nm):</span>
+          <span id="txt-diag-ir" class="status-val" style="color:var(--green);">ACTIVE (FLOOD ON)</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= LOGIC & TELEMETRY INTEGRATION ================= -->
+  <script>
+    // State management
+    let audioAlertEnabled = true;
+    let fogSafeMode = false;
+    let showAiBoxes = true;
+    let audioContext = null;
+    let lastAlertSoundTime = 0;
+    let currentHeading = 148;
+    let activeRightTab = 'imu'; // 'imu' or 'map'
+
+    // 1. Clock display
+    function updateClock() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const timeStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      document.getElementById('clock-display').innerText = timeStr;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ================= 3D DUMPER TRUCK MODEL (THREE.JS) =================
+    let dumperScene, dumperCamera, dumperRenderer, dumperRoot, truckPivot;
+    let targetPitch = 0, targetRoll = 0;
+    let currentPitch = 0, currentRoll = 0;
+
+    function init3dDumper() {
+      const container = document.getElementById('imu-3d-viewport');
+      const canvas = document.getElementById('imu-3d-canvas');
+      if (!container || !canvas || typeof THREE === 'undefined') return;
+
+      const w = container.clientWidth || 145;
+      const h = container.clientHeight || 124;
+
+      // 1. Scene & Camera
+      dumperScene = new THREE.Scene();
+      dumperCamera = new THREE.PerspectiveCamera(36, w / h, 0.1, 50);
+      dumperCamera.position.set(4.3, 2.9, 4.1);
+      dumperCamera.lookAt(0, 0.1, 0);
+
+      // 2. Renderer
+      dumperRenderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        antialias: true,
+        alpha: true
+      });
+      dumperRenderer.setSize(w, h);
+      dumperRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+      // 3. Lighting
+      const ambLight = new THREE.AmbientLight(0xffffff, 0.85);
+      dumperScene.add(ambLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      dirLight.position.set(6, 10, 5);
+      dumperScene.add(dirLight);
+
+      const cyanRim = new THREE.DirectionalLight(0x00e5ff, 0.8);
+      cyanRim.position.set(-6, -2, -4);
+      dumperScene.add(cyanRim);
+
+      const redFill = new THREE.DirectionalLight(0xff1744, 0.6);
+      redFill.position.set(4, -3, 6);
+      dumperScene.add(redFill);
+
+      // 4. Materials matching user's red dumper reference
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: 0xff1744,
+        roughness: 0.35,
+        metalness: 0.25,
+        emissive: 0x330010
+      });
+
+      const bedMat = new THREE.MeshStandardMaterial({
+        color: 0xe6123d,
+        roughness: 0.45,
+        metalness: 0.3,
+        emissive: 0x2b000c
+      });
+
+      const chassisMat = new THREE.MeshStandardMaterial({
+        color: 0x0f172a,
+        roughness: 0.6,
+        metalness: 0.7
+      });
+
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0x051b2c,
+        roughness: 0.1,
+        metalness: 0.9,
+        transparent: true,
+        opacity: 0.85
+      });
+
+      const tireMat = new THREE.MeshStandardMaterial({
+        color: 0x18202c,
+        roughness: 0.85,
+        metalness: 0.1
+      });
+
+      const rimMat = new THREE.MeshStandardMaterial({
+        color: 0xff1744,
+        roughness: 0.3,
+        metalness: 0.8,
+        emissive: 0x550015
+      });
+
+      const edgeMat = new THREE.LineBasicMaterial({
+        color: 0xff6688,
+        linewidth: 1.5,
+        transparent: true,
+        opacity: 0.75
+      });
+
+      function addEdges(mesh) {
+        const edges = new THREE.EdgesGeometry(mesh.geometry);
+        const line = new THREE.LineSegments(edges, edgeMat);
+        mesh.add(line);
+      }
+
+      // Root container (Rotated by user viewing angle)
+      dumperRoot = new THREE.Group();
+      dumperScene.add(dumperRoot);
+
+      // Vehicle group (Tilted by live IMU Pitch & Roll)
+      truckPivot = new THREE.Group();
+      dumperRoot.add(truckPivot);
+
+      // A. Chassis frame
+      const chassisGeo = new THREE.BoxGeometry(3.6, 0.3, 1.4);
+      const chassisMesh = new THREE.Mesh(chassisGeo, chassisMat);
+      chassisMesh.position.set(0, 0.4, 0);
+      addEdges(chassisMesh);
+      truckPivot.add(chassisMesh);
+
+      // B. Cabin (Front of truck, +X)
+      const cabGeo = new THREE.BoxGeometry(1.2, 1.0, 1.5);
+      const cabMesh = new THREE.Mesh(cabGeo, bodyMat);
+      cabMesh.position.set(1.2, 0.95, 0);
+      addEdges(cabMesh);
+      truckPivot.add(cabMesh);
+
+      // Slanted Windshield
+      const windGeo = new THREE.BoxGeometry(0.7, 0.65, 1.35);
+      const windMesh = new THREE.Mesh(windGeo, glassMat);
+      windMesh.position.set(1.5, 1.05, 0);
+      windMesh.rotation.z = -0.32;
+      truckPivot.add(windMesh);
+
+      // Side Windows
+      const sWinGeo = new THREE.BoxGeometry(0.55, 0.42, 1.54);
+      const sWinMesh = new THREE.Mesh(sWinGeo, glassMat);
+      sWinMesh.position.set(1.15, 1.15, 0);
+      truckPivot.add(sWinMesh);
+
+      // Front Bumper
+      const bumperGeo = new THREE.BoxGeometry(0.25, 0.35, 1.55);
+      const bumperMesh = new THREE.Mesh(bumperGeo, chassisMat);
+      bumperMesh.position.set(1.85, 0.4, 0);
+      addEdges(bumperMesh);
+      truckPivot.add(bumperMesh);
+
+      // Glowing Headlights
+      const hlGeo = new THREE.SphereGeometry(0.1, 8, 8);
+      const hlMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+      const hlLeft = new THREE.Mesh(hlGeo, hlMat);
+      hlLeft.position.set(1.92, 0.45, 0.55);
+      const hlRight = new THREE.Mesh(hlGeo, hlMat);
+      hlRight.position.set(1.92, 0.45, -0.55);
+      truckPivot.add(hlLeft);
+      truckPivot.add(hlRight);
+
+      // C. Dump Bed / Hopper (Rear, -X)
+      const bedGeo = new THREE.BoxGeometry(2.3, 1.25, 1.6);
+      const bedMesh = new THREE.Mesh(bedGeo, bedMat);
+      bedMesh.position.set(-0.6, 1.2, 0);
+      addEdges(bedMesh);
+      truckPivot.add(bedMesh);
+
+      // Rock Canopy (Overhang over cab)
+      const canopyGeo = new THREE.BoxGeometry(0.9, 0.16, 1.62);
+      const canopyMesh = new THREE.Mesh(canopyGeo, bedMat);
+      canopyMesh.position.set(0.8, 1.76, 0);
+      addEdges(canopyMesh);
+      truckPivot.add(canopyMesh);
+
+      // Angled Tailgate
+      const tailGeo = new THREE.BoxGeometry(0.2, 1.1, 1.6);
+      const tailMesh = new THREE.Mesh(tailGeo, bedMat);
+      tailMesh.position.set(-1.8, 1.25, 0);
+      tailMesh.rotation.z = 0.22;
+      addEdges(tailMesh);
+      truckPivot.add(tailMesh);
+
+      // D. 6 Heavy-Duty Wheels (1 Front axle, 2 Rear tandem axles)
+      const wheelGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.34, 16);
+      wheelGeo.rotateX(Math.PI / 2);
+
+      const rimGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.36, 16);
+      rimGeo.rotateX(Math.PI / 2);
+
+      const wheelPositions = [
+        [ 1.25,  0.92], // Front Left
+        [ 1.25, -0.92], // Front Right
+        [-0.45,  0.92], // Rear Tandem 1 Left
+        [-0.45, -0.92], // Rear Tandem 1 Right
+        [-1.35,  0.92], // Rear Tandem 2 Left
+        [-1.35, -0.92]  // Rear Tandem 2 Right
+      ];
+
+      wheelPositions.forEach(([wx, wz]) => {
+        const wheelGroup = new THREE.Group();
+        wheelGroup.position.set(wx, 0.36, wz);
+
+        const tireMesh = new THREE.Mesh(wheelGeo, tireMat);
+        const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+        wheelGroup.add(tireMesh);
+        wheelGroup.add(rimMesh);
+
+        const rimEdge = new THREE.LineSegments(
+          new THREE.EdgesGeometry(rimGeo),
+          new THREE.LineBasicMaterial({ color: 0xff1744, linewidth: 1.5 })
+        );
+        wheelGroup.add(rimEdge);
+        truckPivot.add(wheelGroup);
+      });
+
+      // E. Horizon / Gimbal Ring & Crosshairs underneath
+      const ringGeo = new THREE.RingGeometry(2.3, 2.36, 32);
+      ringGeo.rotateX(-Math.PI / 2);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x00e5ff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.35
+      });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.position.set(0, -0.08, 0);
+      dumperRoot.add(ringMesh);
+
+      const crossGeo = new THREE.BufferGeometry();
+      const crossPts = [
+        new THREE.Vector3(-2.3, -0.08, 0), new THREE.Vector3(2.3, -0.08, 0),
+        new THREE.Vector3(0, -0.08, -2.3), new THREE.Vector3(0, -0.08, 2.3)
+      ];
+      crossGeo.setFromPoints(crossPts);
+      const crossLines = new THREE.LineSegments(
+        crossGeo,
+        new THREE.LineBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.25 })
+      );
+      dumperRoot.add(crossLines);
+
+      // Interactive mouse/touch drag
+      let isDragging = false;
+      let prevMouseX = 0, prevMouseY = 0;
+      let userRotY = -0.38; // Initial 3/4 isometric perspective
+      let userRotX = 0.12;
+
+      canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      });
+      window.addEventListener('mouseup', () => { isDragging = false; });
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - prevMouseX;
+        const dy = e.clientY - prevMouseY;
+        userRotY += dx * 0.015;
+        userRotX = Math.max(-0.5, Math.min(0.7, userRotX + dy * 0.015));
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      });
+
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          isDragging = true;
+          prevMouseX = e.touches[0].clientX;
+          prevMouseY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+      window.addEventListener('touchend', () => { isDragging = false; });
+      window.addEventListener('touchmove', (e) => {
+        if (!isDragging || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - prevMouseX;
+        const dy = e.touches[0].clientY - prevMouseY;
+        userRotY += dx * 0.015;
+        userRotX = Math.max(-0.5, Math.min(0.7, userRotX + dy * 0.015));
+        prevMouseX = e.touches[0].clientX;
+        prevMouseY = e.touches[0].clientY;
+      }, { passive: true });
+
+      // Animation render loop
+      function render3d() {
+        requestAnimationFrame(render3d);
+
+        // Smoothly interpolate towards live IMU pitch and roll
+        currentPitch += (targetPitch - currentPitch) * 0.18;
+        currentRoll += (targetRoll - currentRoll) * 0.18;
+
+        const pitchRad = THREE.MathUtils.degToRad(-currentPitch);
+        const rollRad = THREE.MathUtils.degToRad(currentRoll);
+
+        // Truck tilts with live IMU simulation
+        truckPivot.rotation.z = -pitchRad; // Climbing up / down slope
+        truckPivot.rotation.x = rollRad;   // Banking left / right
+
+        // Root rotated by user viewpoint
+        dumperRoot.rotation.y = userRotY;
+        dumperRoot.rotation.x = userRotX;
+
+        dumperRenderer.render(dumperScene, dumperCamera);
+      }
+      render3d();
+    }
+
+    function updateDumperOrientation(pitch, roll) {
+      targetPitch = pitch;
+      targetRoll = roll;
+    }
+
+    function resize3dDumper() {
+      const container = document.getElementById('imu-3d-viewport');
+      if (!container || !dumperRenderer || !dumperCamera) return;
+      const w = container.clientWidth || 145;
+      const h = container.clientHeight || 124;
+      dumperCamera.aspect = w / h;
+      dumperCamera.updateProjectionMatrix();
+      dumperRenderer.setSize(w, h);
+    }
+
+    // 3. AI Box & Fog-Safe Toggles
+    function toggleAiOverlay() {
+      showAiBoxes = !showAiBoxes;
+      const overlay = document.getElementById('ai-overlay');
+      if (overlay) overlay.style.opacity = showAiBoxes ? '1' : '0';
+      const btn = document.getElementById('btn-ai-txt');
+      if (btn) btn.innerText = showAiBoxes ? '[AI BOXES: ON]' : '[AI BOXES: OFF]';
+    }
+
+    function toggleFogMode() {
+      const cam = document.getElementById('cam-feed');
+      const btn = document.getElementById('btn-fog-txt');
+      fogSafeMode = !fogSafeMode;
+
+      if (fogSafeMode) {
+        cam.classList.add('fog-safe-active');
+        btn.style.color = 'var(--cyan)';
+        btn.innerText = '[FOG-SAFE ACTIVE]';
+      } else {
+        cam.classList.remove('fog-safe-active');
+        btn.style.color = 'var(--yellow)';
+        btn.innerText = '[FOG-SAFE]';
+      }
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('light-theme');
+      const isLight = document.body.classList.contains('light-theme');
+      localStorage.setItem('mvx_theme', isLight ? 'light' : 'dark');
+      const iconBtn = document.querySelector('.btn-icon-mode');
+      if (iconBtn) {
+        iconBtn.innerHTML = isLight
+          ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`
+          : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
+      }
+    }
+
+    // 4. Loud Industrial Proximity Buzzer (Web Audio API Synthesizer)
+    function playBuzzer(mode = 'critical') {
+      if (!audioAlertEnabled) return;
+      try {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+
+        const t = audioContext.currentTime;
+
+        // Dynamics Compressor ensures MAX loudness without digital clipping/distortion
+        const comp = audioContext.createDynamicsCompressor();
+        comp.threshold.setValueAtTime(-10, t);
+        comp.knee.setValueAtTime(4, t);
+        comp.ratio.setValueAtTime(10, t);
+        comp.attack.setValueAtTime(0.001, t);
+        comp.release.setValueAtTime(0.08, t);
+        comp.connect(audioContext.destination);
+
+        // Master Volume Gain (Loud: 0.75 - 8x louder than standard web beeps)
+        const master = audioContext.createGain();
+        master.gain.setValueAtTime(0.75, t);
+        master.connect(comp);
+
+        if (mode === 'critical') {
+          // Rapid Dual-Pulse Industrial Mechanical Buzzer: "BZZT - BZZT!"
+          const pulses = [0, 0.14];
+          const dur = 0.11;
+
+          pulses.forEach(offset => {
+            const start = t + offset;
+            const stop = start + dur;
+
+            // Harsh dual square & sawtooth oscillators
+            const osc1 = audioContext.createOscillator();
+            osc1.type = 'sawtooth';
+            osc1.frequency.setValueAtTime(1650, start);
+            osc1.frequency.linearRampToValueAtTime(1300, stop);
+
+            const osc2 = audioContext.createOscillator();
+            osc2.type = 'square';
+            osc2.frequency.setValueAtTime(825, start);
+
+            // 70Hz low-frequency mechanical buzzer vibration modulation
+            const buzzMod = audioContext.createOscillator();
+            buzzMod.type = 'sawtooth';
+            buzzMod.frequency.setValueAtTime(70, start);
+            const modGain = audioContext.createGain();
+            modGain.gain.setValueAtTime(450, start);
+            buzzMod.connect(modGain);
+            modGain.connect(osc1.frequency);
+
+            const env = audioContext.createGain();
+            env.gain.setValueAtTime(0.001, start);
+            env.gain.linearRampToValueAtTime(0.85, start + 0.015);
+            env.gain.setValueAtTime(0.85, stop - 0.02);
+            env.gain.linearRampToValueAtTime(0.001, stop);
+
+            osc1.connect(env);
+            osc2.connect(env);
+            env.connect(master);
+
+            osc1.start(start);
+            osc2.start(start);
+            buzzMod.start(start);
+
+            osc1.stop(stop);
+            osc2.stop(stop);
+            buzzMod.stop(stop);
+          });
+        } else {
+          // Caution mode: Single loud industrial alert buzz
+          const start = t;
+          const stop = start + 0.18;
+
+          const osc = audioContext.createOscillator();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(1200, start);
+
+          const buzzMod = audioContext.createOscillator();
+          buzzMod.type = 'square';
+          buzzMod.frequency.setValueAtTime(60, start);
+          const modGain = audioContext.createGain();
+          modGain.gain.setValueAtTime(320, start);
+          buzzMod.connect(modGain);
+          modGain.connect(osc.frequency);
+
+          const env = audioContext.createGain();
+          env.gain.setValueAtTime(0.001, start);
+          env.gain.linearRampToValueAtTime(0.8, start + 0.02);
+          env.gain.setValueAtTime(0.8, stop - 0.02);
+          env.gain.linearRampToValueAtTime(0.001, stop);
+
+          osc.connect(env);
+          env.connect(master);
+
+          osc.start(start);
+          buzzMod.start(start);
+          osc.stop(stop);
+          buzzMod.stop(stop);
+        }
+      } catch (e) {
+        console.warn('Buzzer audio unavailable', e);
+      }
+    }
+
+    // Alias for compatibility
+    function playBeep(freq = 980, duration = 0.18) {
+      playBuzzer('critical');
+    }
+
+    function toggleAudioAlert() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      audioAlertEnabled = !audioAlertEnabled;
+      const btn = document.querySelector('.siren-circle');
+      if (audioAlertEnabled) {
+        btn.style.opacity = '1';
+        playBuzzer('critical'); // Immediately sound loud buzzer test!
+      } else {
+        btn.style.opacity = '0.35';
+      }
+    }
+
+    const unlockAudio = () => {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+    };
+    ['click', 'touchstart', 'keydown', 'pointerdown'].forEach(ev => {
+      document.addEventListener(ev, unlockAudio, { once: true });
+    });
+
+    // 5. Accelerometer Percentage mapping helper
+    function accelToPct(v) {
+      let p = ((v + 1.5) / 3.0) * 100;
+      return Math.max(5, Math.min(100, p));
+    }
+
+    // ================= 6. LIVE GOOGLE MAPS GNSS POSITIONING ENGINE =================
+    let leafletMap = null;
+    let googleRoadLayer = null;
+    let googleSatLayer = null;
+    let myLocationMarker = null;
+    let userPanning = false;
+    let lastKnownLat = 13.188447;
+    let lastKnownLon = 80.106112;
+
+    function initGoogleMap() {
+      if (typeof L === 'undefined') {
+        console.warn('Leaflet library not ready');
+        return;
+      }
+      const mapContainer = document.getElementById('live-google-map');
+      if (!mapContainer || leafletMap) return;
+
+      try {
+        leafletMap = L.map('live-google-map', {
+          center: [lastKnownLat, lastKnownLon],
+          zoom: 17,
+          zoomControl: false,
+          attributionControl: false
+        });
+
+        // Google Maps Standard Roadmap Layer (Proxied via Backend with Fallback)
+        googleRoadLayer = L.tileLayer('/map_tile/road/{z}/{x}/{y}.png', {
+          maxZoom: 20
+        });
+
+        // Google Maps Satellite / Hybrid Layer (Proxied via Backend with Fallback)
+        googleSatLayer = L.tileLayer('/map_tile/sat/{z}/{x}/{y}.png', {
+          maxZoom: 20
+        });
+
+        // Default: Add Google Maps Road Layer
+        googleRoadLayer.addTo(leafletMap);
+
+        // Iconic Google Maps Blue Navigation Marker with Heading Cone & Pulse
+        const googleNavIcon = L.divIcon({
+          className: 'gmaps-nav-icon',
+          html: `
+            <div class="gmaps-marker-wrap">
+              <div class="gmaps-beacon-pulse"></div>
+              <div id="gmaps-heading-cone" class="gmaps-heading-cone" style="transform: translate(-50%, -50%) rotate(0deg);"></div>
+              <div class="gmaps-blue-dot"></div>
+            </div>
+          `,
+          iconSize: [48, 48],
+          iconAnchor: [24, 24]
+        });
+
+        myLocationMarker = L.marker([lastKnownLat, lastKnownLon], { icon: googleNavIcon }).addTo(leafletMap);
+
+        leafletMap.on('dragstart', () => { userPanning = true; });
+
+        setTimeout(() => {
+          if (leafletMap) leafletMap.invalidateSize();
+        }, 150);
+      } catch (e) {
+        console.error('Error initializing map:', e);
+      }
+    }
+
+    function setMapLayer(type) {
+      if (!leafletMap) return;
+      const btnRoad = document.getElementById('btn-layer-road');
+      const btnSat = document.getElementById('btn-layer-sat');
+
+      if (type === 'satellite') {
+        if (leafletMap.hasLayer(googleRoadLayer)) leafletMap.removeLayer(googleRoadLayer);
+        googleSatLayer.addTo(leafletMap);
+        if (btnRoad) btnRoad.classList.remove('active');
+        if (btnSat) btnSat.classList.add('active');
+      } else {
+        if (leafletMap.hasLayer(googleSatLayer)) leafletMap.removeLayer(googleSatLayer);
+        googleRoadLayer.addTo(leafletMap);
+        if (btnSat) btnSat.classList.remove('active');
+        if (btnRoad) btnRoad.classList.add('active');
+      }
+    }
+
+    function zoomMap(delta) {
+      if (!leafletMap) return;
+      if (delta > 0) leafletMap.zoomIn();
+      else leafletMap.zoomOut();
+    }
+
+    function recenterMap() {
+      userPanning = false;
+      if (leafletMap) {
+        leafletMap.setView([lastKnownLat, lastKnownLon], 17, { animate: true });
+      }
+    }
+
+    function updateMapVehicle(lat, lon, heading, speed) {
+      lastKnownLat = lat;
+      lastKnownLon = lon;
+
+      if (!leafletMap) {
+        initGoogleMap();
+      }
+
+      if (myLocationMarker) {
+        myLocationMarker.setLatLng([lat, lon]);
+        const cone = document.getElementById('gmaps-heading-cone');
+        if (cone) {
+          cone.style.transform = `translate(-50%, -50%) rotate(${heading}deg)`;
+        }
+        if (!userPanning && leafletMap) {
+          leafletMap.panTo([lat, lon], { animate: false });
+        }
+      }
+    }
+
+    // 7. Update Tachometer / Gauge needle
+    function updateGaugeNeedle(rpm) {
+      const clamped = Math.max(0, Math.min(60, rpm));
+      const angle = -65 + (clamped / 60) * 130;
+      const needle = document.getElementById('gauge-needle');
+      if (needle) {
+        needle.setAttribute('transform', `rotate(${angle} 80 100)`);
+      }
+    }
+
+    // ================= NIGHT VISION & 3W IR CONTROLS =================
+    let currentNvgMode = 'auto';
+    let nvgReticleEnabled = true;
+
+    function cycleNightVision() {
+      const modes = ['off', 'auto', 'mono', 'green', 'thermal'];
+      let idx = modes.indexOf(currentNvgMode);
+      let next = modes[(idx + 1) % modes.length];
+      setNightVisionMode(next);
+    }
+
+    function setNightVisionMode(mode) {
+      currentNvgMode = mode;
+      fetch('/api/camera/night_vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: mode })
+      }).then(r => r.json()).then(data => {
+        updateNvgUI(data.config || data);
+      }).catch(e => console.error(e));
+    }
+
+    function onGainChange(val) {
+      const num = parseFloat(val);
+      const lbl = document.getElementById('deck-gain-txt');
+      if (lbl) lbl.innerText = num.toFixed(1) + 'x';
+      fetch('/api/camera/night_vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exposure_gain: num })
+      });
+    }
+
+    function onContrastChange(val) {
+      const num = parseFloat(val);
+      const lbl = document.getElementById('deck-contrast-txt');
+      if (lbl) lbl.innerText = num.toFixed(1) + 'x';
+      fetch('/api/camera/night_vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contrast_gain: num })
+      });
+    }
+
+    function toggleTacticalReticle() {
+      nvgReticleEnabled = !nvgReticleEnabled;
+      const btn = document.getElementById('btn-reticle-txt');
+      if (btn) {
+        btn.style.color = nvgReticleEnabled ? 'var(--cyan)' : 'var(--text-dim)';
+      }
+      fetch('/api/camera/night_vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tactical_reticle: nvgReticleEnabled })
+      });
+    }
+
+    function updateNvgUI(cfg) {
+      if (!cfg) return;
+      currentNvgMode = cfg.mode || 'auto';
+      
+      const modes = ['off', 'auto', 'mono', 'green', 'thermal'];
+      modes.forEach(m => {
+        const btn = document.getElementById('nvg-btn-' + m);
+        if (btn) {
+          if (m === currentNvgMode) btn.classList.add('active');
+          else btn.classList.remove('active');
+        }
+      });
+
+      const quickTxt = document.getElementById('btn-nvg-txt');
+      if (quickTxt) {
+        quickTxt.innerText = `🌙 NVG: ${currentNvgMode.toUpperCase()}`;
+        quickTxt.style.color = cfg.active ? '#00e676' : 'var(--text-dim)';
+      }
+
+      const modeTxt = document.getElementById('nvg-txt-mode');
+      const irTxt = document.getElementById('nvg-txt-ir');
+      const luxTxt = document.getElementById('nvg-txt-lux');
+      const dotPulse = document.getElementById('nvg-pulse-dot');
+      const irPulse = document.getElementById('ir-pulse-dot');
+      const deckIr = document.getElementById('deck-ir-status');
+      const deckDarkTxt = document.getElementById('deck-darkness-txt');
+      const deckDarkBar = document.getElementById('deck-darkness-bar');
+
+      if (modeTxt) {
+        const palName = cfg.current_palette ? cfg.current_palette.toUpperCase() : 'STANDARD';
+        modeTxt.innerText = cfg.active ? `NVG ACTIVE: ${palName}` : `NVG: STANDBY`;
+      }
+      if (dotPulse) {
+        dotPulse.style.background = cfg.active ? '#00e676' : 'var(--text-dim)';
+      }
+
+      const isIr = cfg.ir_flood_active;
+      if (irTxt) irTxt.innerText = isIr ? '3W IR 850nm: ACTIVE' : '3W IR: STANDBY';
+      if (irPulse) irPulse.style.background = isIr ? '#ff1744' : 'var(--text-dim)';
+      if (deckIr) {
+        deckIr.innerText = isIr ? '850nm FLOOD ON' : 'STANDBY (DAYLIGHT)';
+        deckIr.style.color = isIr ? 'var(--green)' : 'var(--yellow)';
+      }
+
+      const darkPct = cfg.darkness_pct != null ? cfg.darkness_pct : 0;
+      const luxPct = cfg.ambient_lux != null ? cfg.ambient_lux : 0;
+      if (luxTxt) luxTxt.innerText = `DARK: ${darkPct.toFixed(0)}% (LUX ${luxPct.toFixed(0)}%)`;
+      if (deckDarkTxt) deckDarkTxt.innerText = `${darkPct.toFixed(1)}% (LUX: ${luxPct.toFixed(1)}%)`;
+      if (deckDarkBar) {
+        deckDarkBar.style.width = `${Math.min(100, Math.max(0, darkPct))}%`;
+        deckDarkBar.style.background = darkPct > 80 ? 'linear-gradient(90deg, #ff1744, #00e5ff)' : (darkPct > 50 ? 'linear-gradient(90deg, #ffd600, #00e5ff)' : 'var(--green)');
+      }
+
+      const diagDotIr = document.getElementById('dot-diag-ir');
+      const diagTxtIr = document.getElementById('txt-diag-ir');
+      if (diagDotIr && diagTxtIr) {
+        if (isIr) {
+          diagDotIr.className = 'diag-dot green';
+          diagTxtIr.style.color = 'var(--green)';
+          diagTxtIr.innerText = 'ACTIVE (FLOOD ON)';
+        } else {
+          diagDotIr.className = 'diag-dot yellow';
+          diagTxtIr.style.color = 'var(--yellow)';
+          diagTxtIr.innerText = 'STANDBY (DAYLIGHT)';
+        }
+      }
+    }
+
+    // 8. Real-Time Telemetry Polling & Reactive Engine
+    async function pollTelemetry() {
+      try {
+        const res = await fetch('/api/telemetry');
+        if (!res.ok) return;
+        const d = await res.json();
+
+        // Update Night Vision & IR telemetry UI
+        if (d.night_vision) {
+          updateNvgUI(d.night_vision);
+        }
+
+        // ================= A. ULTRASONIC SENSOR (PORT D2) =================
+        if (d.ultrasonic && d.ultrasonic.connected) {
+          const rawDist = parseFloat(d.ultrasonic.distance_cm || 0);
+          document.getElementById('val-front-dist').innerText = rawDist.toFixed(1);
+
+          const frontValElem = document.getElementById('sonic-front-val');
+          const frontIcon = document.getElementById('val-front-icon');
+          const alertCard = document.getElementById('alert-card');
+          const riskBadge = document.getElementById('alert-risk-badge');
+          const alertTitle = document.getElementById('alert-title-main');
+          const alertDesc = document.getElementById('alert-desc');
+          const alertDistVal = document.getElementById('alert-distance-val');
+          const bboxObstacle = document.getElementById('bbox-obstacle');
+          const bboxTag = document.getElementById('bbox-obstacle-tag');
+          const arc1 = document.getElementById('front-arc-1');
+          const arc2 = document.getElementById('front-arc-2');
+          const arc3 = document.getElementById('front-arc-3');
+
+          alertDistVal.innerText = `${rawDist.toFixed(1)} cm`;
+
+          // Dynamic AI Bounding box scale synchronized with real sensor distance
+          if (rawDist <= 90) {
+            bboxObstacle.style.display = 'block';
+            const scale = Math.max(0.2, Math.min(1.0, 1.0 - (rawDist - 15) / 75));
+            const boxW = Math.round(18 + scale * 34);
+            const boxH = Math.round(22 + scale * 36);
+            const boxTop = Math.round(48 - (boxH / 2));
+            const boxLeft = Math.round(50 - (boxW / 2));
+            bboxObstacle.style.width = `${boxW}%`;
+            bboxObstacle.style.height = `${boxH}%`;
+            bboxObstacle.style.top = `${boxTop}%`;
+            bboxObstacle.style.left = `${boxLeft}%`;
+          } else {
+            bboxObstacle.style.display = 'none';
+          }
+
+          const alertIconSymbol = document.getElementById('alert-icon-symbol');
+
+          // ZONE 1: 0–50 cm → DANGER (Critical Alert)
+          if (rawDist <= 50) {
+            frontValElem.style.color = 'var(--red)';
+            frontIcon.innerText = '⚠️';
+            alertCard.className = 'card alert-panel state-critical';
+            riskBadge.className = 'badge-high-risk';
+            riskBadge.style.borderColor = 'var(--red)';
+            riskBadge.style.color = 'var(--red)';
+            riskBadge.style.background = 'rgba(255, 23, 68, 0.3)';
+            riskBadge.innerText = 'DANGER';
+            alertTitle.innerText = 'DANGER';
+            alertDesc.innerText = 'Hazard Ahead (≤ 50 cm)';
+            alertDistVal.style.color = 'var(--red)';
+            if (alertIconSymbol) alertIconSymbol.innerText = '⚠️';
+
+            bboxObstacle.style.borderColor = 'var(--red)';
+            bboxTag.className = 'bbox-tag-red';
+            bboxTag.style.background = 'var(--red)';
+            bboxTag.style.color = '#fff';
+            bboxTag.innerText = `⚠️ DANGER: ${rawDist.toFixed(1)} cm`;
+
+            // Radar arcs: All red with emergency warning
+            arc1.setAttribute('stroke', '#ff1744');
+            arc1.setAttribute('stroke-width', '4.5');
+            arc2.setAttribute('stroke', '#ff1744');
+            arc2.setAttribute('stroke-width', '4');
+            arc3.setAttribute('stroke', '#ff1744');
+            arc3.setAttribute('stroke-width', '3.5');
+
+            const now = Date.now();
+            if (now - lastAlertSoundTime > 650) {
+              playBuzzer('critical');
+              lastAlertSoundTime = now;
+            }
+          }
+          // ZONE 2: More than 50 cm and up to 90 cm → OK / CAUTION (No danger alert)
+          else if (rawDist <= 90) {
+            frontValElem.style.color = 'var(--yellow)';
+            frontIcon.innerText = '⚡';
+            alertCard.className = 'card alert-panel state-caution';
+            riskBadge.className = 'badge-high-risk';
+            riskBadge.style.borderColor = 'var(--yellow)';
+            riskBadge.style.color = 'var(--yellow)';
+            riskBadge.style.background = 'rgba(255, 214, 0, 0.25)';
+            riskBadge.innerText = 'OK / CAUTION';
+            alertTitle.innerText = 'OBJECT DETECTED';
+            alertDesc.innerText = 'Distance: ' + rawDist.toFixed(1) + ' cm';
+            alertDistVal.style.color = 'var(--yellow)';
+            if (alertIconSymbol) alertIconSymbol.innerText = '⚡';
+
+            bboxObstacle.style.borderColor = 'var(--yellow)';
+            bboxTag.className = 'bbox-tag-red';
+            bboxTag.style.background = 'var(--yellow)';
+            bboxTag.style.color = '#000';
+            bboxTag.innerText = `OBJECT DETECTED: ${rawDist.toFixed(1)} cm`;
+
+            // Radar arcs: Outer arcs amber, inner calm
+            arc1.setAttribute('stroke', 'rgba(255, 214, 0, 0.35)');
+            arc1.setAttribute('stroke-width', '2.5');
+            arc2.setAttribute('stroke', '#ffd600');
+            arc2.setAttribute('stroke-width', '3.5');
+            arc3.setAttribute('stroke', '#ffd600');
+            arc3.setAttribute('stroke-width', '4');
+          }
+          // ZONE 3: More than 90 cm → SAFE (No immediate danger present)
+          else {
+            frontValElem.style.color = 'var(--green)';
+            frontIcon.innerText = '✓';
+            alertCard.className = 'card alert-panel state-clear';
+            riskBadge.className = 'badge-high-risk';
+            riskBadge.style.borderColor = 'var(--green)';
+            riskBadge.style.color = 'var(--green)';
+            riskBadge.style.background = 'rgba(0, 230, 118, 0.2)';
+            riskBadge.innerText = 'SAFE';
+            alertTitle.innerText = 'SAFE';
+            alertDesc.innerText = 'No Immediate Danger Present';
+            alertDistVal.style.color = 'var(--green)';
+            if (alertIconSymbol) alertIconSymbol.innerText = '✓';
+
+            // Radar arcs: Calm green
+            arc1.setAttribute('stroke', '#00e676');
+            arc1.setAttribute('stroke-width', '2.5');
+            arc2.setAttribute('stroke', '#00e676');
+            arc2.setAttribute('stroke-width', '3');
+            arc3.setAttribute('stroke', '#00e676');
+            arc3.setAttribute('stroke-width', '3.5');
+          }
+        } else {
+          // When ultrasonic sensor is not connected
+          const rawDistElem = document.getElementById('val-front-dist');
+          if (rawDistElem) rawDistElem.innerText = '--';
+          const frontValElem = document.getElementById('sonic-front-val');
+          const frontIcon = document.getElementById('val-front-icon');
+          if (frontValElem) frontValElem.style.color = 'var(--text-dim)';
+          if (frontIcon) frontIcon.innerText = '⚠️';
+
+          const alertCard = document.getElementById('alert-card');
+          const riskBadge = document.getElementById('alert-risk-badge');
+          const alertTitle = document.getElementById('alert-title-main');
+          const alertDesc = document.getElementById('alert-desc');
+          const alertDistVal = document.getElementById('alert-distance-val');
+          const bboxObstacle = document.getElementById('bbox-obstacle');
+
+          if (alertCard) alertCard.className = 'card alert-panel state-caution';
+          if (riskBadge) {
+            riskBadge.className = 'badge-high-risk';
+            riskBadge.style.borderColor = 'rgba(255,255,255,0.2)';
+            riskBadge.style.color = 'var(--text-dim)';
+            riskBadge.style.background = 'rgba(255,255,255,0.05)';
+            riskBadge.innerText = 'OFFLINE';
+          }
+          if (alertTitle) alertTitle.innerText = 'RADAR OFFLINE';
+          if (alertDesc) alertDesc.innerText = 'Searching for Port D2...';
+          if (alertDistVal) alertDistVal.innerText = '-- cm';
+          if (bboxObstacle) bboxObstacle.style.display = 'none';
+
+          const arc1 = document.getElementById('front-arc-1');
+          const arc2 = document.getElementById('front-arc-2');
+          const arc3 = document.getElementById('front-arc-3');
+          if (arc1) arc1.setAttribute('stroke', 'rgba(255,255,255,0.15)');
+          if (arc2) arc2.setAttribute('stroke', 'rgba(255,255,255,0.15)');
+          if (arc3) arc3.setAttribute('stroke', 'rgba(255,255,255,0.15)');
+        }
+
+        // ================= B. 3D IMU SENSOR (MMA7660) SIMULATION & ACCELEROMETER =================
+        if (d.imu && d.imu.connected) {
+          const pitch = d.imu.pitch || 0;
+          const roll = d.imu.roll || 0;
+
+          // 1. Orient the 3D Dumper Truck Model in 3D space!
+          updateDumperOrientation(pitch, roll);
+
+          // 2. Update digital degree angles
+          const degPitch = document.getElementById('deg-pitch');
+          if (degPitch) degPitch.innerText = (pitch >= 0 ? '+' : '') + pitch.toFixed(1) + '°';
+          const degRoll = document.getElementById('deg-roll');
+          if (degRoll) degRoll.innerText = (roll >= 0 ? '+' : '') + roll.toFixed(1) + '°';
+
+          // 3. Accelerometer readings & bars
+          const ax = d.imu.ax || 0;
+          const ay = d.imu.ay || 0;
+          const az = d.imu.az || 0;
+          const txtAx = document.getElementById('txt-ax');
+          if (txtAx) txtAx.innerText = (ax >= 0 ? '+' : '') + ax.toFixed(2) + ' g';
+          const txtAy = document.getElementById('txt-ay');
+          if (txtAy) txtAy.innerText = (ay >= 0 ? '+' : '') + ay.toFixed(2) + ' g';
+          const txtAz = document.getElementById('txt-az');
+          if (txtAz) txtAz.innerText = (az >= 0 ? '+' : '') + az.toFixed(2) + ' g';
+
+          const barAx = document.getElementById('bar-ax');
+          if (barAx) barAx.style.width = accelToPct(ax) + '%';
+          const barAy = document.getElementById('bar-ay');
+          if (barAy) barAy.style.width = accelToPct(ay) + '%';
+          const barAz = document.getElementById('bar-az');
+          if (barAz) barAz.style.width = accelToPct(az) + '%';
+
+          // 4. Slope stability verdict & Big Warning Box update
+          const warnCard = document.getElementById('imu-warning-box');
+          const warnIcon = document.getElementById('imu-warning-icon');
+          const warnTitle = document.getElementById('imu-warning-title');
+          const warnDesc = document.getElementById('imu-warning-desc');
+
+          const maxTilt = Math.max(Math.abs(pitch), Math.abs(roll));
+          if (maxTilt > 15) {
+            if (warnCard) warnCard.className = 'imu-warning-card warning-critical';
+            if (warnIcon) warnIcon.innerText = '⚠️';
+            if (warnTitle) warnTitle.innerText = 'ROLLOVER WARNING!';
+            if (warnDesc) warnDesc.innerText = `CRITICAL TILT: ${maxTilt.toFixed(1)}° (LIMIT 15°)`;
+          } else if (maxTilt > 8) {
+            if (warnCard) warnCard.className = 'imu-warning-card warning-caution';
+            if (warnIcon) warnIcon.innerText = '⚠️';
+            if (warnTitle) warnTitle.innerText = 'GRADE CAUTION';
+            if (warnDesc) warnDesc.innerText = `STEEP INCLINE: ${maxTilt.toFixed(1)}° (SLOPE RISK)`;
+          } else {
+            if (warnCard) warnCard.className = 'imu-warning-card warning-safe';
+            if (warnIcon) warnIcon.innerText = '✔';
+            if (warnTitle) warnTitle.innerText = 'ATTITUDE STABLE';
+            if (warnDesc) warnDesc.innerText = 'SAFE GRADE • STABILITY NORMAL';
+          }
+
+          // 5. Update heading & pitch in Navigation Info
+          currentHeading = Math.abs(Math.round((roll * 8) + 148)) % 360;
+          document.getElementById('nav-heading').innerText = `${currentHeading}° SE • P: ${(pitch >= 0 ? '+' : '') + pitch.toFixed(1)}°`;
+
+          const compass = document.getElementById('map-compass');
+          if (compass) {
+            compass.style.transform = `rotate(${-currentHeading}deg)`;
+          }
+        }
+
+        // ================= C. ARDUINO ENCODER & MOTOR DRIVE =================
+        if (d.arduino) {
+          const rpm = d.arduino.rpm || 0;
+          document.getElementById('stat-rpm').innerText = Math.round(rpm);
+          updateGaugeNeedle(rpm);
+
+          const lastCmd = d.arduino.last_cmd || 'S';
+          const driveModeElem = document.getElementById('stat-drive-mode');
+          if (driveModeElem) {
+            if (lastCmd === 'F') driveModeElem.innerText = 'D';
+            else if (lastCmd === 'B') driveModeElem.innerText = 'R';
+            else if (lastCmd === 'S') driveModeElem.innerText = 'P';
+            else driveModeElem.innerText = lastCmd;
+          }
+
+          const spdKmh = d.arduino.speed_kmh || (d.gps ? d.gps.speed_kmh : 0);
+          const spdStr = `${spdKmh.toFixed(1)} km/h`;
+          const statSpdElem = document.getElementById('stat-speed');
+          if (statSpdElem) statSpdElem.innerText = spdStr;
+          const mapSpdElem = document.getElementById('map-spd');
+          if (mapSpdElem) mapSpdElem.innerText = spdStr;
+          const navSpdElem = document.getElementById('nav-speed');
+          if (navSpdElem) navSpdElem.innerText = spdStr;
+        }
+
+        // ================= D. GNSS GPS & MAP POSITIONING =================
+        const hasSatFix = d.gps && (d.gps.has_satellite_fix === true || (d.gps.fix === true && d.gps.satellites > 0));
+        const satsInView = (d.gps && d.gps.satellites_in_view != null) ? d.gps.satellites_in_view : 0;
+        const lat = (d.gps && d.gps.latitude != null) ? d.gps.latitude : 13.188447;
+        const lon = (d.gps && d.gps.longitude != null) ? d.gps.longitude : 80.106112;
+        const alt = (d.gps && d.gps.altitude_m != null) ? Math.round(d.gps.altitude_m) : 28;
+        const sats = (d.gps && d.gps.satellites != null) ? d.gps.satellites : 0;
+        const fixQuality = (d.gps && d.gps.fix_quality) ? d.gps.fix_quality : (hasSatFix ? '3D Lock' : (satsInView > 0 ? 'Acquiring' : 'Searching Indoors'));
+        const spdKmh = (d.gps && d.gps.speed_kmh != null) ? d.gps.speed_kmh : (d.arduino ? d.arduino.speed_kmh : 0.0);
+
+        const latStr = `${lat.toFixed(6)}° N`;
+        const lonStr = `${lon.toFixed(6)}° E`;
+
+        // Update Map HUD Floating Card
+        const mapLatElem = document.getElementById('map-lat');
+        const mapLonElem = document.getElementById('map-lon');
+        const mapAltElem = document.getElementById('map-alt');
+        const mapSpdElem = document.getElementById('map-spd');
+        const mapLockBadge = document.getElementById('map-lock-badge');
+        const mapModeHint = document.getElementById('map-mode-hint');
+
+        if (mapLatElem) mapLatElem.innerText = latStr;
+        if (mapLonElem) mapLonElem.innerText = lonStr;
+        if (mapAltElem) mapAltElem.innerText = `${alt} m`;
+        if (mapSpdElem) mapSpdElem.innerText = `${spdKmh.toFixed(1)} km/h`;
+
+        if (mapLockBadge) {
+          if (hasSatFix) {
+            mapLockBadge.className = 'map-hud-live-tag lock-active';
+            mapLockBadge.innerHTML = `<span class="dot-pulse" style="width:6px; height:6px; background:#00e676;"></span>3D LOCK (${sats} SATS)`;
+            mapLockBadge.style.color = 'var(--green)';
+            mapLockBadge.style.borderColor = 'rgba(0, 230, 118, 0.4)';
+            mapLockBadge.style.background = 'rgba(0, 230, 118, 0.15)';
+          } else if (satsInView > 0) {
+            mapLockBadge.className = 'map-hud-live-tag lock-acquiring';
+            mapLockBadge.innerHTML = `<span class="dot-pulse" style="width:6px; height:6px; background:#38bdf8;"></span>ACQUIRING (${satsInView} IN VIEW)`;
+            mapLockBadge.style.color = '#38bdf8';
+            mapLockBadge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+            mapLockBadge.style.background = 'rgba(56, 189, 248, 0.15)';
+          } else {
+            mapLockBadge.className = 'map-hud-live-tag lock-searching';
+            mapLockBadge.innerHTML = `<span class="dot-pulse" style="width:6px; height:6px; background:#f59e0b;"></span>SEARCHING (${sats} SATS)`;
+            mapLockBadge.style.color = 'var(--yellow)';
+            mapLockBadge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+            mapLockBadge.style.background = 'rgba(245, 158, 11, 0.15)';
+          }
+        }
+
+        if (mapModeHint) {
+          if (hasSatFix) {
+            mapModeHint.style.color = 'var(--green)';
+            mapModeHint.innerText = `● HIGH PRECISION GNSS LOCK (${sats} SATELLITES)`;
+          } else if (satsInView > 0) {
+            mapModeHint.style.color = '#38bdf8';
+            mapModeHint.innerText = `🛰️ SATELLITES DETECTED (${satsInView}) • RESOLVING 3D FIX...`;
+          } else {
+            mapModeHint.style.color = '#f59e0b';
+            mapModeHint.innerText = '⚠️ INDOORS (0 SATS) • MOVE ANTENNA TO SKY FOR 3D LOCK';
+          }
+        }
+
+        const mapFixElem = document.getElementById('map-fix-status');
+        if (mapFixElem) {
+          if (hasSatFix) {
+            mapFixElem.className = 'strip-val val-green';
+            mapFixElem.innerText = `${fixQuality.toUpperCase()} (${sats} SATS)`;
+            mapFixElem.style.color = '#00e676';
+          } else if (satsInView > 0) {
+            mapFixElem.className = 'strip-val';
+            mapFixElem.innerText = `ACQUIRING (${satsInView} IN VIEW)`;
+            mapFixElem.style.color = '#38bdf8';
+          } else {
+            mapFixElem.className = 'strip-val';
+            mapFixElem.innerText = `SEARCHING (0 SATS - INDOOR)`;
+            mapFixElem.style.color = '#f59e0b';
+          }
+        }
+
+        // Update Bottom Navigation Info Panel
+        const navLatElem = document.getElementById('nav-lat');
+        const navLonElem = document.getElementById('nav-lon');
+        const navSatsElem = document.getElementById('nav-sats');
+        const navAltElem = document.getElementById('nav-alt');
+        const navLocType = document.getElementById('nav-loc-type');
+
+        if (navLatElem) navLatElem.innerText = latStr;
+        if (navLonElem) navLonElem.innerText = lonStr;
+        if (navSatsElem) {
+          if (hasSatFix) {
+            navSatsElem.innerText = `${sats} Satellites (${fixQuality})`;
+            navSatsElem.style.color = 'var(--green)';
+          } else if (satsInView > 0) {
+            navSatsElem.innerText = `${satsInView} in view (Acquiring Fix...)`;
+            navSatsElem.style.color = '#38bdf8';
+          } else {
+            navSatsElem.innerText = `0 Satellites (Searching Indoors)`;
+            navSatsElem.style.color = '#f59e0b';
+          }
+        }
+        if (navAltElem) navAltElem.innerText = `${alt} m`;
+        if (navLocType) {
+          navLocType.innerText = hasSatFix ? 'GNSS Live Fixed (WGS-84)' : 'Vel Tech High Tech (Indoor Coarse Fix)';
+          navLocType.style.color = hasSatFix ? 'var(--cyan)' : '#f59e0b';
+        }
+
+        // Update Vehicle Marker on Live Google Maps
+        updateMapVehicle(lat, lon, currentHeading, spdKmh);
+
+        // ================= E. HARDWARE SENSORS STATUS DIAGNOSTICS =================
+        // 1. Camera (OV5647)
+        const dotCam = document.getElementById('dot-diag-cam');
+        const txtCam = document.getElementById('txt-diag-cam');
+        if (dotCam && txtCam) {
+          if (d.camera && d.camera.connected) {
+            dotCam.className = 'diag-dot';
+            txtCam.style.color = 'var(--green)';
+            txtCam.innerText = `ACTIVE (${d.camera.resolution || '640x480'} @ 25 FPS)`;
+          } else {
+            dotCam.className = 'diag-dot red';
+            txtCam.style.color = 'var(--red)';
+            txtCam.innerText = 'OFFLINE';
+          }
+        }
+
+        // 2. Ultrasonic Sensor (GrovePi Port D2)
+        const dotSonic = document.getElementById('dot-diag-sonic');
+        const txtSonic = document.getElementById('txt-diag-sonic');
+        if (dotSonic && txtSonic) {
+          if (d.ultrasonic && d.ultrasonic.connected) {
+            const uDist = parseFloat(d.ultrasonic.distance_cm || 0);
+            dotSonic.className = uDist <= 50 ? 'diag-dot red' : (uDist <= 90 ? 'diag-dot yellow' : 'diag-dot');
+            txtSonic.style.color = uDist <= 50 ? 'var(--red)' : (uDist <= 90 ? 'var(--yellow)' : 'var(--green)');
+            txtSonic.innerText = `ACTIVE (${uDist.toFixed(1)} cm)`;
+          } else {
+            dotSonic.className = 'diag-dot red';
+            txtSonic.style.color = 'var(--red)';
+            txtSonic.innerText = 'OFFLINE';
+          }
+        }
+
+        // 3. IMU 3-Axis Accelerometer (MMA7660)
+        const dotImu = document.getElementById('dot-diag-imu');
+        const txtImu = document.getElementById('txt-diag-imu');
+        if (dotImu && txtImu) {
+          if (d.imu && d.imu.connected) {
+            dotImu.className = 'diag-dot';
+            txtImu.style.color = 'var(--green)';
+            txtImu.innerText = `ACTIVE (P:${d.imu.pitch >= 0 ? '+' : ''}${d.imu.pitch.toFixed(1)}° R:${d.imu.roll >= 0 ? '+' : ''}${d.imu.roll.toFixed(1)}°)`;
+          } else {
+            dotImu.className = 'diag-dot red';
+            txtImu.style.color = 'var(--red)';
+            txtImu.innerText = 'OFFLINE';
+          }
+        }
+
+        // 4. GNSS GPS Receiver (NEO-M9N)
+        const dotGps = document.getElementById('dot-diag-gps');
+        const txtGps = document.getElementById('txt-diag-gps');
+        if (dotGps && txtGps) {
+          if (d.gps && d.gps.connected) {
+            if (d.gps.fix) {
+              dotGps.className = 'diag-dot';
+              txtGps.style.color = 'var(--green)';
+              txtGps.innerText = `3D LOCK (${d.gps.satellites} SATS)`;
+            } else {
+              dotGps.className = 'diag-dot yellow';
+              txtGps.style.color = 'var(--yellow)';
+              txtGps.innerText = 'ACQUIRING...';
+            }
+          } else {
+            dotGps.className = 'diag-dot red';
+            txtGps.style.color = 'var(--red)';
+            txtGps.innerText = 'OFFLINE';
+          }
+        }
+
+        // 5. Arduino UNO Controller
+        const dotArd = document.getElementById('dot-diag-ard');
+        const txtArd = document.getElementById('txt-diag-ard');
+        if (dotArd && txtArd) {
+          if (d.arduino && d.arduino.connected) {
+            dotArd.className = 'diag-dot';
+            txtArd.style.color = 'var(--green)';
+            txtArd.innerText = `LINKED (${d.arduino.port || '/dev/ttyUSB0'})`;
+          } else {
+            dotArd.className = 'diag-dot red';
+            txtArd.style.color = 'var(--red)';
+            txtArd.innerText = 'DISCONNECTED';
+          }
+        }
+
+        // 6. Bluetooth HC-05 Transceiver
+        const dotBle = document.getElementById('dot-diag-ble');
+        const txtBle = document.getElementById('txt-diag-ble');
+        if (dotBle && txtBle) {
+          if (d.arduino && d.arduino.ble_device) {
+            dotBle.className = 'diag-dot';
+            txtBle.style.color = 'var(--green)';
+            txtBle.innerText = 'PAIRED (HC-05)';
+          } else {
+            dotBle.className = 'diag-dot yellow';
+            txtBle.style.color = 'var(--yellow)';
+            txtBle.innerText = 'DISCONNECTED';
+          }
+        }
+
+      } catch (err) {
+        // Retain current view gracefully if frame drops
+      }
+    }
+
+    // Initialize telemetry polling loop & Google Map
+    updateGaugeNeedle(0);
+    initGoogleMap();
+    setInterval(pollTelemetry, 100);
+    pollTelemetry();
+
+    window.addEventListener('load', () => {
+      initGoogleMap();
+      if (leafletMap) leafletMap.invalidateSize();
+      init3dDumper();
+    });
+    setTimeout(() => {
+      initGoogleMap();
+      if (leafletMap) leafletMap.invalidateSize();
+      init3dDumper();
+    }, 200);
+    window.addEventListener('resize', () => {
+      if (leafletMap) leafletMap.invalidateSize();
+      resize3dDumper();
+    });
+  </script>
+</body>
+</html>

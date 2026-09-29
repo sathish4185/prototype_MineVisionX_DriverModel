@@ -1,0 +1,16 @@
+# Mine Vision-X Unified Requirements
+# Compatible with Python 3.9+ (Windows, Linux, Raspberry Pi OS, JetPack)
+
+# Web Framework & REST API
+Flask>=2.0.0
+requests>=2.25.0
+
+# Hardware & Serial Interfacing (Arduino UNO & Powertrain)
+pyserial>=3.5
+
+# I2C Bus Communication (Raspberry Pi / Linux Edge Node)
+smbus2>=0.4.0
+
+# Digital Signal Processing, Array Mathematics & Imaging
+numpy>=1.20.0
+Pillow>=9.0.0
